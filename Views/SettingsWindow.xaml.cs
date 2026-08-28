@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -8,11 +10,53 @@ using DwgSearcher.Engine;
 
 namespace DwgSearcher.Views;
 
+/// <summary>
+/// 监控文件夹绑定实体（支持多语言动态按钮）
+/// </summary>
+public class WatchFolderItem : INotifyPropertyChanged
+{
+    private string _path = string.Empty;
+    private bool _includeSubdirectories = true;
+    private bool _enabled = true;
+
+    public string Path
+    {
+        get => _path;
+        set { _path = value; OnPropertyChanged(); }
+    }
+
+    public bool IncludeSubdirectories
+    {
+        get => _includeSubdirectories;
+        set { _includeSubdirectories = value; OnPropertyChanged(); }
+    }
+
+    public bool Enabled
+    {
+        get => _enabled;
+        set { _enabled = value; OnPropertyChanged(); }
+    }
+
+    public string RemoveButtonText => LocalizationService.Get("BtnRemove");
+
+    public void NotifyLanguageChanged()
+    {
+        OnPropertyChanged(nameof(RemoveButtonText));
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+}
+
 public partial class SettingsWindow : Window
 {
     private readonly AppConfig _config;
     private readonly IndexingEngine _indexEngine;
-    private readonly ObservableCollection<WatchFolder> _folders;
+    private readonly ObservableCollection<WatchFolderItem> _folders;
+    private readonly List<string> _removedFolderPaths = new();
 
     public bool NeedsReindex { get; private set; }
 
@@ -22,7 +66,7 @@ public partial class SettingsWindow : Window
         _config = config;
         _indexEngine = indexEngine;
 
-        _folders = new ObservableCollection<WatchFolder>(_config.Folders.Select(f => new WatchFolder
+        _folders = new ObservableCollection<WatchFolderItem>(_config.Folders.Select(f => new WatchFolderItem
         {
             Path = f.Path,
             IncludeSubdirectories = f.IncludeSubdirectories,
@@ -62,6 +106,12 @@ public partial class SettingsWindow : Window
         LanguageLabelTextBlock.Text = LocalizationService.Get("SettingsLangSection");
         BtnSave.Content = LocalizationService.Get("BtnSaveApply");
         BtnCancel.Content = LocalizationService.Get("BtnCancel");
+
+        // 刷新表格内所有行的“移除”按钮多语言文本
+        foreach (var item in _folders)
+        {
+            item.NotifyLanguageChanged();
+        }
     }
 
     private void AddFolder_Click(object sender, RoutedEventArgs e)
@@ -79,7 +129,9 @@ public partial class SettingsWindow : Window
             {
                 if (!_folders.Any(f => f.Path.Equals(selectedPath, StringComparison.OrdinalIgnoreCase)))
                 {
-                    _folders.Add(new WatchFolder { Path = selectedPath, IncludeSubdirectories = true });
+                    _folders.Add(new WatchFolderItem { Path = selectedPath, IncludeSubdirectories = true });
+                    // 如果之前被移除了，现在重新添加，则从待清理列表中移除
+                    _removedFolderPaths.RemoveAll(p => p.Equals(selectedPath, StringComparison.OrdinalIgnoreCase));
                     NeedsReindex = true;
                 }
                 else
@@ -92,8 +144,12 @@ public partial class SettingsWindow : Window
 
     private void RemoveFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is FrameworkElement element && element.DataContext is WatchFolder folder)
+        if (sender is FrameworkElement element && element.DataContext is WatchFolderItem folder)
         {
+            if (!_removedFolderPaths.Contains(folder.Path, StringComparer.OrdinalIgnoreCase))
+            {
+                _removedFolderPaths.Add(folder.Path);
+            }
             _folders.Remove(folder);
             NeedsReindex = true;
         }
@@ -106,6 +162,14 @@ public partial class SettingsWindow : Window
             IsEnabled = false;
             try
             {
+                // 先清理已移除的文件夹索引
+                foreach (var removedPath in _removedFolderPaths)
+                {
+                    _indexEngine.RemoveDirectoryIndex(removedPath);
+                }
+                _removedFolderPaths.Clear();
+
+                // 重新扫描现有文件夹
                 foreach (var folder in _folders)
                 {
                     if (Directory.Exists(folder.Path))
@@ -128,7 +192,32 @@ public partial class SettingsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        _config.Folders = _folders.ToList();
+        // 1. 彻底从 SQLite 数据库移除已删除文件夹下的所有图纸索引
+        if (_removedFolderPaths.Count > 0)
+        {
+            foreach (var removedPath in _removedFolderPaths)
+            {
+                try
+                {
+                    _indexEngine.RemoveDirectoryIndex(removedPath);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[SettingsWindow] 移除目录索引失败 ({removedPath}): {ex.Message}");
+                }
+            }
+            _removedFolderPaths.Clear();
+            NeedsReindex = true;
+        }
+
+        // 2. 保存新配置
+        _config.Folders = _folders.Select(f => new WatchFolder
+        {
+            Path = f.Path,
+            IncludeSubdirectories = f.IncludeSubdirectories,
+            Enabled = f.Enabled
+        }).ToList();
+
         _config.AutoSyncOnChange = AutoSyncCheckBox.IsChecked == true;
         _config.Language = LocalizationService.CurrentLanguage;
         ConfigService.Save(_config);

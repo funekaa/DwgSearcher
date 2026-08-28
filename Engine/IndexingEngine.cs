@@ -314,6 +314,35 @@ public class IndexingEngine : IDisposable
         transaction.Commit();
     }
 
+    /// <summary>
+    /// 移除指定目录及其所有子目录下已索引的图纸记录与倒排全文索引
+    /// </summary>
+    /// <param name="directoryPath">要移除的目录路径</param>
+    public void RemoveDirectoryIndex(string directoryPath)
+    {
+        if (string.IsNullOrWhiteSpace(directoryPath)) return;
+
+        string normalized = directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string prefix1 = normalized + Path.DirectorySeparatorChar + "%";
+        string prefix2 = normalized + Path.AltDirectorySeparatorChar + "%";
+
+        using var connection = _dbManager.CreateConnection();
+        using var transaction = connection.BeginTransaction();
+
+        using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
+        cmd.CommandText = @"
+            DELETE FROM DocIndex WHERE FilePath = @exactPath OR FilePath LIKE @p1 OR FilePath LIKE @p2;
+            DELETE FROM FileRecords WHERE FilePath = @exactPath OR FilePath LIKE @p1 OR FilePath LIKE @p2;
+        ";
+        cmd.Parameters.AddWithValue("@exactPath", normalized);
+        cmd.Parameters.AddWithValue("@p1", prefix1);
+        cmd.Parameters.AddWithValue("@p2", prefix2);
+        cmd.ExecuteNonQuery();
+
+        transaction.Commit();
+    }
+
     public void Dispose()
     {
         if (!_disposed)

@@ -31,7 +31,7 @@
                     <DataGridTemplateColumn x:Name="ColAction" Header="操作" Width="80">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Button x:Name="BtnRemoveItem" Content="移除" Style="{StaticResource SecondaryButton}" 
+                                <Button Content="{Binding RemoveButtonText}" Style="{StaticResource SecondaryButton}" 
                                         Padding="8,2" FontSize="12" Click="RemoveFolder_Click" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
