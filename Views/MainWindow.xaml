@@ -32,7 +32,7 @@
 
                 <!-- 应用品牌名称与精美图标 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0">
-                    <Image Source="/app.png" Width="26" Height="26" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <Image Source="/app.png" Width="28" Height="28" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="DwgSearcher" FontSize="18" FontWeight="Bold" Foreground="#0078D4" VerticalAlignment="Center" />
                 </StackPanel>
 
@@ -55,7 +55,7 @@
                                      TextChanged="SearchBox_TextChanged" KeyDown="SearchBox_KeyDown" />
 
                             <!-- 占位水印提示 -->
-                            <TextBlock Grid.Column="1" Text="输入图号、设计者、文字、标注尺寸、属性等关键词检索 (支持中英文子串，如: FG / DN100 / 法兰盘)..." 
+                            <TextBlock x:Name="WatermarkTextBlock" Grid.Column="1" Text="输入图号、设计者、文字、标注尺寸、属性等关键词检索..." 
                                        FontSize="13.5" Foreground="#9E9E9E" VerticalAlignment="Center" IsHitTestVisible="False" Margin="4,0,0,0">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -79,8 +79,8 @@
 
                 <!-- 顶部右侧快捷按钮栏 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="🔄 增量更新" Style="{StaticResource SecondaryButton}" Click="SyncIndex_Click" Margin="0,0,8,0" ToolTip="立即扫描监控目录下的新增与变动图纸" />
-                    <Button Content="⚙ 目录设置" Style="{StaticResource ModernButton}" Click="OpenSettings_Click" ToolTip="添加/管理图纸监控目录与自动同步选项" />
+                    <Button x:Name="BtnSyncIndex" Content="🔄 增量更新" Style="{StaticResource SecondaryButton}" Click="SyncIndex_Click" Margin="0,0,8,0" />
+                    <Button x:Name="BtnSettings" Content="⚙ 目录设置" Style="{StaticResource ModernButton}" Click="OpenSettings_Click" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -115,10 +115,10 @@
                         <!-- 右键菜单 -->
                         <ListView.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="📂 打开图纸文件" Click="MenuOpenFile_Click" FontWeight="Bold" />
-                                <MenuItem Header="📁 打开所在文件夹" Click="MenuOpenFolder_Click" />
+                                <MenuItem x:Name="MenuOpenFile" Header="📂 打开图纸文件" Click="MenuOpenFile_Click" FontWeight="Bold" />
+                                <MenuItem x:Name="MenuOpenFolder" Header="📁 打开所在文件夹" Click="MenuOpenFolder_Click" />
                                 <Separator />
-                                <MenuItem Header="📋 复制文件完整路径" Click="MenuCopyPath_Click" />
+                                <MenuItem x:Name="MenuCopyPath" Header="📋 复制文件完整路径" Click="MenuCopyPath_Click" />
                             </ContextMenu>
                         </ListView.ContextMenu>
 
@@ -196,8 +196,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="📝 图纸提取文本与上下文 (高亮匹配)" FontSize="12.5" FontWeight="SemiBold" Foreground="#555555" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="📋 复制全文" Style="{StaticResource SecondaryButton}" Padding="8,2" FontSize="11.5" Click="CopyText_Click" />
+                                <TextBlock x:Name="PanelExtractedTextTitle" Grid.Column="0" Text="📝 图纸提取文本与上下文 (高亮匹配)" FontSize="12.5" FontWeight="SemiBold" Foreground="#555555" VerticalAlignment="Center" />
+                                <Button x:Name="BtnCopyText" Grid.Column="1" Content="📋 复制全文" Style="{StaticResource SecondaryButton}" Padding="8,2" FontSize="11.5" Click="CopyText_Click" />
                             </Grid>
                         </Border>
 
@@ -226,8 +226,8 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="🖼 图纸资源管理器 (Explorer) 高清缩略图预览" FontSize="12.5" FontWeight="SemiBold" Foreground="#555555" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="🚀 打开图纸" Style="{StaticResource SecondaryButton}" Padding="8,2" FontSize="11.5" Click="OpenCurrentFile_Click" />
+                                <TextBlock x:Name="PanelPreviewTitle" Grid.Column="0" Text="🖼 图纸资源管理器 (Explorer) 高清缩略图预览" FontSize="12.5" FontWeight="SemiBold" Foreground="#555555" VerticalAlignment="Center" />
+                                <Button x:Name="BtnOpenCurrent" Grid.Column="1" Content="🚀 打开图纸" Style="{StaticResource SecondaryButton}" Padding="8,2" FontSize="11.5" Click="OpenCurrentFile_Click" />
                             </Grid>
                         </Border>
 
@@ -240,8 +240,8 @@
                             <!-- 无预览图时的占位提示 -->
                             <StackPanel x:Name="NoPreviewPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
                                 <TextBlock Text="📐" FontSize="36" HorizontalAlignment="Center" Foreground="#666666" Margin="0,0,0,6" />
-                                <TextBlock Text="该 DWG/DXF 文件未生成资源管理器位图缩略图" FontSize="12" Foreground="#888888" HorizontalAlignment="Center" />
-                                <TextBlock Text="可直接双击左侧列表使用 CAD 软件查看完整图形" FontSize="11" Foreground="#666666" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                                <TextBlock x:Name="NoPreviewTextBlock" Text="该 DWG/DXF 文件未生成资源管理器位图缩略图" FontSize="12" Foreground="#888888" HorizontalAlignment="Center" />
+                                <TextBlock x:Name="NoPreviewSubTextBlock" Text="可直接双击左侧列表使用 CAD 软件查看完整图形" FontSize="11" Foreground="#666666" HorizontalAlignment="Center" Margin="0,4,0,0" />
                             </StackPanel>
                         </Grid>
                     </Grid>

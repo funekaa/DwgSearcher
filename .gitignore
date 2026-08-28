@@ -1,6 +1,8 @@
 ## .NET / Visual Studio
 [Bb]in/
 [Oo]bj/
+publish/
+*.zip
 .vs/
 *.user
 *.userosscache

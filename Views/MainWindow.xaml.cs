@@ -30,7 +30,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // 1. 初始化配置与数据库
+        // 1. 初始化配置与语言
         _config = ConfigService.Load();
         string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dwg_index.db");
         _dbManager = new DatabaseManager(dbPath);
@@ -50,16 +50,61 @@ public partial class MainWindow : Window
             Dispatcher.Invoke(() => ExecuteSearch(SearchBox.Text));
         };
 
-        // 4. 窗体加载完成后执行初始扫描与默认检索
+        // 4. 监听语言切换事件
+        LocalizationService.OnLanguageChanged += ApplyLocalization;
+
+        // 5. 窗体加载
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
+
+        ApplyLocalization();
+    }
+
+    private void ApplyLocalization()
+    {
+        Title = LocalizationService.Get("AppTitle");
+        WatermarkTextBlock.Text = LocalizationService.Get("SearchWatermark");
+        BtnSyncIndex.Content = LocalizationService.Get("BtnSyncIndex");
+        BtnSyncIndex.ToolTip = LocalizationService.Get("BtnSyncIndexTip");
+        BtnSettings.Content = LocalizationService.Get("BtnSettings");
+        BtnSettings.ToolTip = LocalizationService.Get("BtnSettingsTip");
+
+        MenuOpenFile.Header = LocalizationService.Get("MenuOpenFile");
+        MenuOpenFolder.Header = LocalizationService.Get("MenuOpenFolder");
+        MenuCopyPath.Header = LocalizationService.Get("MenuCopyPath");
+
+        PanelExtractedTextTitle.Text = LocalizationService.Get("PanelExtractedText");
+        BtnCopyText.Content = LocalizationService.Get("BtnCopyAllText");
+        PanelPreviewTitle.Text = LocalizationService.Get("PanelPreview");
+        BtnOpenCurrent.Content = LocalizationService.Get("BtnOpenCurrent");
+        NoPreviewTextBlock.Text = LocalizationService.Get("NoPreviewText");
+        NoPreviewSubTextBlock.Text = LocalizationService.Get("NoPreviewSubText");
+
+        EmptyStateTextBlock.Text = LocalizationService.Get("EmptyResult");
+        DbInfoTextBlock.Text = LocalizationService.Get("DbInfo");
+
+        // 刷新列表统计文本
+        UpdateSummaryAndStatus();
+    }
+
+    private void UpdateSummaryAndStatus()
+    {
+        var allDocs = _searchEngine.GetAllIndexedDocs();
+        int totalIndexed = allDocs.Count;
+        string liveStatus = _config.AutoSyncOnChange ? LocalizationService.Get("StatusEnabled") : LocalizationService.Get("StatusDisabled");
+        StatusTextBlock.Text = LocalizationService.Get("StatusReady", totalIndexed, liveStatus);
+
+        string keyword = SearchBox.Text.Trim();
+        if (string.IsNullOrEmpty(keyword))
+        {
+            ResultSummaryTextBlock.Text = LocalizationService.Get("ResultAllCount", _currentResults.Count);
+        }
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         await PerformInitialIndexAsync();
 
-        // 如果有上次搜索词或默认搜索
         if (!string.IsNullOrWhiteSpace(_config.LastSearchKeyword))
         {
             SearchBox.Text = _config.LastSearchKeyword;
@@ -70,13 +115,9 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// 启动时异步增量扫描监控文件夹
-    /// </summary>
     private async Task PerformInitialIndexAsync()
     {
-        StatusTextBlock.Text = "正在检查图纸目录与增量索引...";
-        int totalIndexed = 0;
+        StatusTextBlock.Text = LocalizationService.Get("StatusScanning");
 
         foreach (var folder in _config.Folders)
         {
@@ -93,9 +134,7 @@ public partial class MainWindow : Window
             }
         }
 
-        var allDocs = _searchEngine.GetAllIndexedDocs();
-        totalIndexed = allDocs.Count;
-        StatusTextBlock.Text = $"就绪 | 当前已索引 {totalIndexed} 张 CAD 图纸 | 实时监控: {(_config.AutoSyncOnChange ? "已开启" : "已关闭")}";
+        UpdateSummaryAndStatus();
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -120,9 +159,6 @@ public partial class MainWindow : Window
         SearchBox.Focus();
     }
 
-    /// <summary>
-    /// 执行检索
-    /// </summary>
     private void ExecuteSearch(string keyword)
     {
         keyword = keyword.Trim();
@@ -134,9 +170,8 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrEmpty(keyword))
         {
-            // 输入为空时展示所有已索引图纸
             var allDocs = _searchEngine.GetAllIndexedDocs();
-            rawResults = allDocs.Select(d => new SearchResult(d.FilePath, d.Title, $"[全图已提取 {d.TextLength} 字符]", 0.0)).ToList();
+            rawResults = allDocs.Select(d => new SearchResult(d.FilePath, d.Title, $"[{d.TextLength} chars]", 0.0)).ToList();
         }
         else
         {
@@ -147,19 +182,17 @@ public partial class MainWindow : Window
         _currentResults = rawResults.Select(r => new SearchResultItem(r)).ToList();
         ResultsListView.ItemsSource = _currentResults;
 
-        // 更新结果统计
         if (string.IsNullOrEmpty(keyword))
         {
-            ResultSummaryTextBlock.Text = $"全部已索引图纸共 {_currentResults.Count} 个";
+            ResultSummaryTextBlock.Text = LocalizationService.Get("ResultAllCount", _currentResults.Count);
         }
         else
         {
-            ResultSummaryTextBlock.Text = $"找到 {_currentResults.Count} 个匹配图纸 (耗时 {sw.Elapsed.TotalMilliseconds:F2} ms)";
+            ResultSummaryTextBlock.Text = LocalizationService.Get("ResultFoundCount", _currentResults.Count, sw.Elapsed.TotalMilliseconds);
         }
 
         EmptyStateTextBlock.Visibility = _currentResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        // 默认选中第一条
         if (_currentResults.Count > 0)
         {
             ResultsListView.SelectedIndex = 0;
@@ -170,9 +203,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// 列表选择项变更
-    /// </summary>
     private void ResultsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (ResultsListView.SelectedItem is SearchResultItem item)
@@ -182,19 +212,13 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// 展示图纸的提取文本（高亮关键词）和缩略图
-    /// </summary>
     private void DisplayItemDetails(SearchResultItem item)
     {
-        // 1. 异步获取图纸纯文本
         string? text = _searchEngine.GetDocContent(item.FilePath);
         _currentExtractedText = text ?? string.Empty;
 
-        // 2. 渲染带黄色高亮的富文本
         RenderHighlightedContent(_currentExtractedText, SearchBox.Text.Trim());
 
-        // 3. 加载 DWG 嵌入缩略图
         var thumb = item.GetThumbnail();
         if (thumb != null)
         {
@@ -210,9 +234,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// 在 RichTextBox 中渲染并高亮关键词
-    /// </summary>
     private void RenderHighlightedContent(string fullText, string keyword)
     {
         var doc = new FlowDocument
@@ -224,7 +245,7 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(fullText))
         {
-            doc.Blocks.Add(new Paragraph(new Run("(该图纸未提取到文本内容或无实体文字)"))
+            doc.Blocks.Add(new Paragraph(new Run("(No text content extracted)"))
             {
                 Foreground = Brushes.Gray
             });
@@ -241,7 +262,6 @@ public partial class MainWindow : Window
         }
         else
         {
-            // 文本切片高亮算法
             int currentIndex = 0;
             while (currentIndex < fullText.Length)
             {
@@ -260,14 +280,12 @@ public partial class MainWindow : Window
 
                 if (nextMatchIndex >= 0)
                 {
-                    // 添加匹配词前的普通文本
                     if (nextMatchIndex > currentIndex)
                     {
                         string normalText = fullText.Substring(currentIndex, nextMatchIndex - currentIndex);
                         paragraph.Inlines.Add(new Run(normalText) { Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2B2B2B")) });
                     }
 
-                    // 添加高亮文本 (鲜明黄色底色)
                     string matchedText = fullText.Substring(nextMatchIndex, matchedToken.Length);
                     var highlightRun = new Run(matchedText)
                     {
@@ -281,7 +299,6 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    // 剩余普通文本
                     string remainingText = fullText.Substring(currentIndex);
                     paragraph.Inlines.Add(new Run(remainingText) { Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2B2B2B")) });
                     break;
@@ -305,7 +322,7 @@ public partial class MainWindow : Window
 
     private async void SyncIndex_Click(object sender, RoutedEventArgs e)
     {
-        StatusTextBlock.Text = "正在增量扫描与同步更新索引...";
+        StatusTextBlock.Text = LocalizationService.Get("StatusSyncing");
         await PerformInitialIndexAsync();
         ExecuteSearch(SearchBox.Text);
     }
@@ -326,25 +343,15 @@ public partial class MainWindow : Window
             }
             else
             {
-                StatusTextBlock.Text = $"设置已保存 | 实时监控: {(_config.AutoSyncOnChange ? "已开启" : "已关闭")}";
+                string liveStatus = _config.AutoSyncOnChange ? LocalizationService.Get("StatusEnabled") : LocalizationService.Get("StatusDisabled");
+                StatusTextBlock.Text = LocalizationService.Get("MsgSaved", liveStatus);
             }
         }
     }
 
-    private void ResultsListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-    {
-        OpenCurrentFile();
-    }
-
-    private void OpenCurrentFile_Click(object sender, RoutedEventArgs e)
-    {
-        OpenCurrentFile();
-    }
-
-    private void MenuOpenFile_Click(object sender, RoutedEventArgs e)
-    {
-        OpenCurrentFile();
-    }
+    private void ResultsListView_MouseDoubleClick(object sender, MouseButtonEventArgs e) => OpenCurrentFile();
+    private void OpenCurrentFile_Click(object sender, RoutedEventArgs e) => OpenCurrentFile();
+    private void MenuOpenFile_Click(object sender, RoutedEventArgs e) => OpenCurrentFile();
 
     private void MenuOpenFolder_Click(object sender, RoutedEventArgs e)
     {
@@ -356,7 +363,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"定位文件夹失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
@@ -366,7 +373,7 @@ public partial class MainWindow : Window
         if (_selectedItem != null)
         {
             Clipboard.SetText(_selectedItem.FilePath);
-            StatusTextBlock.Text = $"已复制路径: {_selectedItem.FilePath}";
+            StatusTextBlock.Text = LocalizationService.Get("StatusCopiedPath", _selectedItem.FilePath);
         }
     }
 
@@ -375,7 +382,7 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(_currentExtractedText))
         {
             Clipboard.SetText(_currentExtractedText);
-            StatusTextBlock.Text = "已复制该图纸的全部纯文本到剪贴板！";
+            StatusTextBlock.Text = LocalizationService.Get("StatusCopiedText");
         }
     }
 
@@ -393,7 +400,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"打开图纸失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
@@ -402,14 +409,14 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            StatusTextBlock.Text = $"[自动同步] 已更新索引: {Path.GetFileName(filePath)} ({DateTime.Now:HH:mm:ss})";
-            // 刷新当前搜索
+            StatusTextBlock.Text = LocalizationService.Get("StatusAutoIndexed", Path.GetFileName(filePath), DateTime.Now.ToString("HH:mm:ss"));
             ExecuteSearch(SearchBox.Text);
         });
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        LocalizationService.OnLanguageChanged -= ApplyLocalization;
         _searchDebounceTimer.Dispose();
         _watcherService.Dispose();
         _searchEngine.Dispose();

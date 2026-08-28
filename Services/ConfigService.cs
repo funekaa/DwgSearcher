@@ -22,6 +22,7 @@ public class AppConfig
     public bool AutoSyncOnChange { get; set; } = true;
     public int MaxSearchResults { get; set; } = 100;
     public string LastSearchKeyword { get; set; } = string.Empty;
+    public string Language { get; set; } = "zh-CN";
 }
 
 /// <summary>
@@ -44,7 +45,10 @@ public static class ConfigService
                 string json = File.ReadAllText(ConfigPath);
                 _current = JsonSerializer.Deserialize<AppConfig>(json);
                 if (_current != null)
+                {
+                    LocalizationService.CurrentLanguage = _current.Language ?? "zh-CN";
                     return _current;
+                }
             }
             catch
             {
@@ -60,6 +64,7 @@ public static class ConfigService
             _current.Folders.Add(new WatchFolder { Path = defaultTestData, IncludeSubdirectories = true });
         }
 
+        LocalizationService.CurrentLanguage = _current.Language;
         Save(_current);
         return _current;
     }
