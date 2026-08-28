@@ -1,0 +1,24 @@
+## .NET / Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+## SQLite Database files
+*.db
+*.db-wal
+*.db-shm
+
+## CAD Temporary Lock Files
+*.dwl
+*.dwl2
+
+## OS Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store

@@ -1,0 +1,63 @@
+<Window x:Class="DwgSearcher.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置 - DwgSearcher" 
+        Height="480" Width="680"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#F9F9F9">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 标题 -->
+        <TextBlock Grid.Row="0" Text="图纸索引目录管理" FontSize="18" FontWeight="Bold" Foreground="#333333" Margin="0,0,0,12" />
+
+        <!-- 目录列表 -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="2">
+            <DataGrid x:Name="FoldersDataGrid" AutoGenerateColumns="False" CanUserAddRows="False" 
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      BorderThickness="0" Background="Transparent" RowHeaderWidth="0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="监控文件夹路径" Binding="{Binding Path}" Width="*" IsReadOnly="True" />
+                    <DataGridCheckBoxColumn Header="包含子文件夹" Binding="{Binding IncludeSubdirectories}" Width="100" />
+                    <DataGridTemplateColumn Header="操作" Width="80">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="移除" Style="{StaticResource SecondaryButton}" 
+                                        Padding="8,2" FontSize="12" Click="RemoveFolder_Click" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- 添加目录操作栏 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,15" HorizontalAlignment="Left">
+            <Button Content="➕ 添加图纸文件夹..." Style="{StaticResource ModernButton}" Click="AddFolder_Click" Margin="0,0,10,0" />
+            <Button Content="🔄 立即全量重建索引" Style="{StaticResource SecondaryButton}" Click="RebuildIndex_Click" />
+        </StackPanel>
+
+        <!-- 选项设置 -->
+        <Border Grid.Row="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,0,20">
+            <StackPanel>
+                <CheckBox x:Name="AutoSyncCheckBox" Content="开启后台实时监听 (当 CAD 图纸新建/修改/保存时自动更新索引)" 
+                          FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock Text="说明：系统支持 .dwg 与 .dxf 格式，自动深度解析图纸标题栏、属性定义、标注、文字及表格数据。" 
+                           FontSize="12" Foreground="#777777" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 底部确定按钮 -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="保存并应用" Style="{StaticResource ModernButton}" Width="100" Click="Save_Click" Margin="0,0,10,0" />
+            <Button Content="取消" Style="{StaticResource SecondaryButton}" Width="80" Click="Cancel_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
