@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using DwgSearcher.Models;
@@ -20,6 +19,11 @@ public record IndexingProgress(
     int FailedFiles,
     string CurrentFile
 );
+
+/// <summary>
+/// 提取的文档中间数据结构
+/// </summary>
+internal record ExtractedDoc(string FilePath, string Title, string Content, long LastModified, long FileSize);
 
 /// <summary>
 /// 全文索引引擎，负责文件的增量检测、多线程文本提取以及批量事务入库
@@ -47,7 +51,7 @@ public class IndexingEngine : IDisposable
         CancellationToken cancellationToken = default)
     {
         if (!Directory.Exists(directoryPath))
-            throw new DirectoryNotFoundException($"目录未找到: {directoryPath}");
+            return;
 
         // 1. 枚举所有支持的磁盘文件
         var diskFiles = Directory.EnumerateFiles(directoryPath, "*.*", SearchOption.AllDirectories)
@@ -109,8 +113,7 @@ public class IndexingEngine : IDisposable
         }
 
         // 5. 多线程并发提取文本
-        var documentsToWrite = new ConcurrentBag<IndexedDocument>();
-        var recordsToWrite = new ConcurrentBag<FileRecord>();
+        var docsToWrite = new ConcurrentBag<ExtractedDoc>();
 
         using var semaphore = new SemaphoreSlim(maxConcurrency);
         var tasks = new List<Task>();
@@ -120,7 +123,7 @@ public class IndexingEngine : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             await semaphore.WaitAsync(cancellationToken);
 
-            tasks.Add(Task.Run(async () =>
+            tasks.Add(Task.Run(() =>
             {
                 try
                 {
@@ -136,22 +139,21 @@ public class IndexingEngine : IDisposable
                     var extractor = _extractorRegistry.GetExtractor(fileInfo.FullName);
                     if (extractor != null)
                     {
-                        var doc = await extractor.ExtractAsync(fileInfo.FullName);
-                        if (doc != null)
-                        {
-                            documentsToWrite.Add(doc);
-                            recordsToWrite.Add(new FileRecord
-                            {
-                                FilePath = doc.FilePath,
-                                LastModified = fileInfo.LastWriteTimeUtc.Ticks,
-                                FileSize = fileInfo.Length
-                            });
-                            Interlocked.Increment(ref indexedCount);
-                        }
-                        else
-                        {
-                            Interlocked.Increment(ref failedCount);
-                        }
+                        string content = extractor.ExtractText(fileInfo.FullName);
+                        string title = Path.GetFileName(fileInfo.FullName);
+
+                        docsToWrite.Add(new ExtractedDoc(
+                            fileInfo.FullName,
+                            title,
+                            content ?? string.Empty,
+                            fileInfo.LastWriteTimeUtc.Ticks,
+                            fileInfo.Length
+                        ));
+                        Interlocked.Increment(ref indexedCount);
+                    }
+                    else
+                    {
+                        Interlocked.Increment(ref failedCount);
                     }
                 }
                 catch (Exception ex)
@@ -167,19 +169,19 @@ public class IndexingEngine : IDisposable
             }, cancellationToken));
 
             // 分批写入数据库，避免内存暴涨
-            if (documentsToWrite.Count >= batchSize)
+            if (docsToWrite.Count >= batchSize)
             {
                 await Task.WhenAll(tasks);
                 tasks.Clear();
-                FlushBatchToDatabase(documentsToWrite, recordsToWrite);
+                FlushBatchToDatabase(docsToWrite);
             }
         }
 
         // 等待所有剩余任务完成并提交最终批次
         await Task.WhenAll(tasks);
-        if (!documentsToWrite.IsEmpty)
+        if (!docsToWrite.IsEmpty)
         {
-            FlushBatchToDatabase(documentsToWrite, recordsToWrite);
+            FlushBatchToDatabase(docsToWrite);
         }
 
         progress?.Report(new IndexingProgress(
@@ -228,7 +230,7 @@ public class IndexingEngine : IDisposable
     /// <summary>
     /// 单个文件增量更新或新建
     /// </summary>
-    public async Task IndexSingleFileAsync(string filePath)
+    public void IndexSingleFile(string filePath)
     {
         if (!File.Exists(filePath) || !_extractorRegistry.IsSupported(filePath))
             return;
@@ -247,17 +249,18 @@ public class IndexingEngine : IDisposable
         var extractor = _extractorRegistry.GetExtractor(filePath);
         if (extractor == null) return;
 
-        var doc = await extractor.ExtractAsync(filePath);
-        if (doc == null) return;
+        string content = extractor.ExtractText(filePath);
+        string title = Path.GetFileName(filePath);
 
-        var newRecord = new FileRecord
-        {
-            FilePath = doc.FilePath,
-            LastModified = fileInfo.LastWriteTimeUtc.Ticks,
-            FileSize = fileInfo.Length
-        };
+        var doc = new ExtractedDoc(
+            filePath,
+            title,
+            content ?? string.Empty,
+            fileInfo.LastWriteTimeUtc.Ticks,
+            fileInfo.Length
+        );
 
-        FlushBatchToDatabase(new[] { doc }, new[] { newRecord });
+        FlushBatchToDatabase(new[] { doc });
     }
 
     /// <summary>
@@ -289,25 +292,34 @@ public class IndexingEngine : IDisposable
 
     private static string NormalizePath(string path)
     {
-        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        try
+        {
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     private static bool IsSubPath(string path, string basePath)
     {
-        if (path.Equals(basePath, StringComparison.OrdinalIgnoreCase))
+        string normPath = NormalizePath(path);
+        string normBase = NormalizePath(basePath);
+
+        if (normPath.Equals(normBase, StringComparison.OrdinalIgnoreCase))
             return true;
 
-        string prefix = basePath + Path.DirectorySeparatorChar;
-        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        string prefix = normBase + Path.DirectorySeparatorChar;
+        return normPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
     /// 批量事务写入 SQLite（同时插入/更新 FileRecords 表 和 FTS5 DocIndex 表）
     /// </summary>
-    private void FlushBatchToDatabase(IEnumerable<IndexedDocument> docs, IEnumerable<FileRecord> records)
+    private void FlushBatchToDatabase(IEnumerable<ExtractedDoc> docs)
     {
         var docList = docs.ToList();
-        var recordList = records.ToList();
         if (docList.Count == 0) return;
 
         using var connection = _dbManager.CreateConnection();
@@ -327,11 +339,11 @@ public class IndexingEngine : IDisposable
         var pRecMod = cmdRec.Parameters.Add("@LastModified", SqliteType.Integer);
         var pRecSize = cmdRec.Parameters.Add("@FileSize", SqliteType.Integer);
 
-        foreach (var rec in recordList)
+        foreach (var doc in docList)
         {
-            pRecPath.Value = rec.FilePath;
-            pRecMod.Value = rec.LastModified;
-            pRecSize.Value = rec.FileSize;
+            pRecPath.Value = doc.FilePath;
+            pRecMod.Value = doc.LastModified;
+            pRecSize.Value = doc.FileSize;
             cmdRec.ExecuteNonQuery();
         }
 
@@ -361,25 +373,21 @@ public class IndexingEngine : IDisposable
     /// <summary>
     /// 加载现存的所有文件元数据字典
     /// </summary>
-    private Dictionary<string, FileRecord> LoadExistingFileRecords()
+    private Dictionary<string, (long LastModified, long FileSize)> LoadExistingFileRecords()
     {
-        var dict = new Dictionary<string, FileRecord>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, (long LastModified, long FileSize)>(StringComparer.OrdinalIgnoreCase);
 
         using var connection = _dbManager.CreateConnection();
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT FileId, FilePath, LastModified, FileSize FROM FileRecords;";
+        cmd.CommandText = "SELECT FilePath, LastModified, FileSize FROM FileRecords;";
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            var record = new FileRecord
-            {
-                FileId = reader.GetInt64(0),
-                FilePath = reader.GetString(1),
-                LastModified = reader.GetInt64(2),
-                FileSize = reader.GetInt64(3)
-            };
-            dict[record.FilePath] = record;
+            string path = reader.GetString(0);
+            long lastMod = reader.GetInt64(1);
+            long size = reader.GetInt64(2);
+            dict[path] = (lastMod, size);
         }
 
         return dict;
