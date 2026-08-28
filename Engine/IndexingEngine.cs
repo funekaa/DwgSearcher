@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using DwgSearcher.Models;
+using DwgSearcher.Services;
 using DwgSearcher.Storage;
 using DwgSearcher.TextExtraction;
 
@@ -38,10 +39,6 @@ public class IndexingEngine : IDisposable
     /// <summary>
     /// 全量扫描目录并进行增量比对与批量入库
     /// </summary>
-    /// <param name="directoryPath">要扫描的目录</param>
-    /// <param name="batchSize">事务批处理大小（默认 500）</param>
-    /// <param name="maxConcurrency">文本提取的最大并发度</param>
-    /// <param name="progress">进度回调</param>
     public async Task IndexDirectoryAsync(
         string directoryPath, 
         int batchSize = 500, 
@@ -79,15 +76,18 @@ public class IndexingEngine : IDisposable
                     continue;
                 }
             }
-
             filesToIndex.Add(fileInfo);
         }
 
-        // 4. 清理磁盘上已删除但在数据库中残留的索引
-        var deletedPaths = existingRecords.Keys.Where(p => !currentDiskPaths.Contains(p) && p.StartsWith(directoryPath, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (deletedPaths.Count > 0)
+        // 4. 清理该目录下磁盘已物理删除的文件
+        string normalizedDirPath = NormalizePath(directoryPath);
+        var deletedFiles = existingRecords.Keys
+            .Where(path => IsSubPath(path, normalizedDirPath) && !currentDiskPaths.Contains(path))
+            .ToList();
+
+        if (deletedFiles.Count > 0)
         {
-            RemoveDeletedFiles(deletedPaths);
+            RemoveDeletedFiles(deletedFiles);
         }
 
         int totalToProcess = filesToIndex.Count;
@@ -97,89 +97,171 @@ public class IndexingEngine : IDisposable
 
         if (totalToProcess == 0)
         {
-            progress?.Report(new IndexingProgress(diskFiles.Count, diskFiles.Count, 0, skippedCount, 0, "全部文件已是最新"));
+            progress?.Report(new IndexingProgress(
+                TotalFiles: diskFiles.Count,
+                ProcessedFiles: diskFiles.Count,
+                IndexedFiles: 0,
+                SkippedFiles: skippedCount,
+                FailedFiles: 0,
+                CurrentFile: "已全部是最新索引"
+            ));
             return;
         }
 
-        // 5. 并行文本提取 + 单线程批量事务入库（生产者-消费者流水线）
-        var pendingBatch = new List<(FileInfo info, string title, string content)>(batchSize);
+        // 5. 多线程并发提取文本
+        var documentsToWrite = new ConcurrentBag<IndexedDocument>();
+        var recordsToWrite = new ConcurrentBag<FileRecord>();
 
-        // 使用 Parallel.ForEach 进行 CPU 并行文本抽取
-        var extractedQueue = new ConcurrentQueue<(FileInfo info, string title, string content)>();
+        using var semaphore = new SemaphoreSlim(maxConcurrency);
+        var tasks = new List<Task>();
 
-        var parallelOptions = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = maxConcurrency,
-            CancellationToken = cancellationToken
-        };
-
-        // 按 batch 分批并行抽取和写入
-        for (int i = 0; i < filesToIndex.Count; i += batchSize)
+        foreach (var fileInfo in filesToIndex)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            await semaphore.WaitAsync(cancellationToken);
 
-            var currentSlice = filesToIndex.Skip(i).Take(batchSize).ToList();
-            var batchItems = new ConcurrentBag<(FileInfo info, string title, string content)>();
-
-            Parallel.ForEach(currentSlice, parallelOptions, fileInfo =>
+            tasks.Add(Task.Run(async () =>
             {
                 try
                 {
+                    progress?.Report(new IndexingProgress(
+                        TotalFiles: totalToProcess,
+                        ProcessedFiles: processedCount,
+                        IndexedFiles: indexedCount,
+                        SkippedFiles: skippedCount,
+                        FailedFiles: failedCount,
+                        CurrentFile: fileInfo.FullName
+                    ));
+
                     var extractor = _extractorRegistry.GetExtractor(fileInfo.FullName);
                     if (extractor != null)
                     {
-                        string content = extractor.ExtractText(fileInfo.FullName);
-                        string title = Path.GetFileName(fileInfo.FullName);
-                        batchItems.Add((fileInfo, title, content));
+                        var doc = await extractor.ExtractAsync(fileInfo.FullName);
+                        if (doc != null)
+                        {
+                            documentsToWrite.Add(doc);
+                            recordsToWrite.Add(new FileRecord
+                            {
+                                FilePath = doc.FilePath,
+                                LastModified = fileInfo.LastWriteTimeUtc.Ticks,
+                                FileSize = fileInfo.Length
+                            });
+                            Interlocked.Increment(ref indexedCount);
+                        }
+                        else
+                        {
+                            Interlocked.Increment(ref failedCount);
+                        }
                     }
                 }
                 catch (Exception ex)
                 {
                     Interlocked.Increment(ref failedCount);
-                    Console.Error.WriteLine($"[IndexingEngine] 提取文本失败 {fileInfo.FullName}: {ex.Message}");
+                    Console.Error.WriteLine($"[IndexingEngine] 提取失败: {fileInfo.FullName}, 原因: {ex.Message}");
                 }
-            });
+                finally
+                {
+                    Interlocked.Increment(ref processedCount);
+                    semaphore.Release();
+                }
+            }, cancellationToken));
 
-            // 6. 批量事务写入 SQLite（极速提升吞吐量）
-            SaveBatchToDatabase(batchItems);
-
-            indexedCount += batchItems.Count;
-            processedCount += currentSlice.Count;
-
-            progress?.Report(new IndexingProgress(
-                diskFiles.Count, 
-                skippedCount + processedCount, 
-                indexedCount, 
-                skippedCount, 
-                failedCount, 
-                currentSlice.LastOrDefault()?.FullName ?? string.Empty
-            ));
+            // 分批写入数据库，避免内存暴涨
+            if (documentsToWrite.Count >= batchSize)
+            {
+                await Task.WhenAll(tasks);
+                tasks.Clear();
+                FlushBatchToDatabase(documentsToWrite, recordsToWrite);
+            }
         }
+
+        // 等待所有剩余任务完成并提交最终批次
+        await Task.WhenAll(tasks);
+        if (!documentsToWrite.IsEmpty)
+        {
+            FlushBatchToDatabase(documentsToWrite, recordsToWrite);
+        }
+
+        progress?.Report(new IndexingProgress(
+            TotalFiles: totalToProcess,
+            ProcessedFiles: processedCount,
+            IndexedFiles: indexedCount,
+            SkippedFiles: skippedCount,
+            FailedFiles: failedCount,
+            CurrentFile: "索引完成"
+        ));
     }
 
     /// <summary>
-    /// 索引或更新单个文件
+    /// 全面清理非受管目录下的孤立图纸索引
+    /// 确保数据库中只保留当前受监控文件夹内的图纸
     /// </summary>
-    public void IndexSingleFile(string filePath)
+    /// <param name="activeFolders">当前受监控的文件夹配置列表</param>
+    public int PurgeUnmanagedIndexes(IEnumerable<WatchFolder> activeFolders)
     {
-        if (!File.Exists(filePath))
+        var validPrefixes = activeFolders
+            .Where(f => f.Enabled && !string.IsNullOrWhiteSpace(f.Path))
+            .Select(f => NormalizePath(f.Path))
+            .ToList();
+
+        var existingRecords = LoadExistingFileRecords();
+        var unmanagedPaths = new List<string>();
+
+        foreach (var filePath in existingRecords.Keys)
         {
-            RemoveFile(filePath);
+            string normalizedFilePath = NormalizePath(filePath);
+            bool isManaged = validPrefixes.Any(prefix => IsSubPath(normalizedFilePath, prefix));
+            if (!isManaged)
+            {
+                unmanagedPaths.Add(filePath);
+            }
+        }
+
+        if (unmanagedPaths.Count > 0)
+        {
+            RemoveDeletedFiles(unmanagedPaths);
+        }
+
+        return unmanagedPaths.Count;
+    }
+
+    /// <summary>
+    /// 单个文件增量更新或新建
+    /// </summary>
+    public async Task IndexSingleFileAsync(string filePath)
+    {
+        if (!File.Exists(filePath) || !_extractorRegistry.IsSupported(filePath))
             return;
+
+        var fileInfo = new FileInfo(filePath);
+        var existingRecords = LoadExistingFileRecords();
+
+        if (existingRecords.TryGetValue(filePath, out var record))
+        {
+            if (record.LastModified == fileInfo.LastWriteTimeUtc.Ticks && record.FileSize == fileInfo.Length)
+            {
+                return;
+            }
         }
 
         var extractor = _extractorRegistry.GetExtractor(filePath);
         if (extractor == null) return;
 
-        var fileInfo = new FileInfo(filePath);
-        string content = extractor.ExtractText(filePath);
-        string title = Path.GetFileName(filePath);
+        var doc = await extractor.ExtractAsync(filePath);
+        if (doc == null) return;
 
-        SaveBatchToDatabase(new[] { (fileInfo, title, content) });
+        var newRecord = new FileRecord
+        {
+            FilePath = doc.FilePath,
+            LastModified = fileInfo.LastWriteTimeUtc.Ticks,
+            FileSize = fileInfo.Length
+        };
+
+        FlushBatchToDatabase(new[] { doc }, new[] { newRecord });
     }
 
     /// <summary>
-    /// 从索引库中彻底移除指定文件
+    /// 单个文件从索引中删除
     /// </summary>
     public void RemoveFile(string filePath)
     {
@@ -187,81 +269,102 @@ public class IndexingEngine : IDisposable
     }
 
     /// <summary>
-    /// 使用单事务批量入库
+    /// 移除指定目录及其所有子目录下已索引的图纸记录与倒排全文索引
     /// </summary>
-    private void SaveBatchToDatabase(IEnumerable<(FileInfo info, string title, string content)> batch)
+    public void RemoveDirectoryIndex(string directoryPath)
     {
-        var items = batch.ToList();
-        if (items.Count == 0) return;
+        if (string.IsNullOrWhiteSpace(directoryPath)) return;
+
+        string normalizedDirPath = NormalizePath(directoryPath);
+        var existingRecords = LoadExistingFileRecords();
+        var pathsToRemove = existingRecords.Keys
+            .Where(path => IsSubPath(NormalizePath(path), normalizedDirPath))
+            .ToList();
+
+        if (pathsToRemove.Count > 0)
+        {
+            RemoveDeletedFiles(pathsToRemove);
+        }
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    private static bool IsSubPath(string path, string basePath)
+    {
+        if (path.Equals(basePath, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        string prefix = basePath + Path.DirectorySeparatorChar;
+        return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 批量事务写入 SQLite（同时插入/更新 FileRecords 表 和 FTS5 DocIndex 表）
+    /// </summary>
+    private void FlushBatchToDatabase(IEnumerable<IndexedDocument> docs, IEnumerable<FileRecord> records)
+    {
+        var docList = docs.ToList();
+        var recordList = records.ToList();
+        if (docList.Count == 0) return;
 
         using var connection = _dbManager.CreateConnection();
         using var transaction = connection.BeginTransaction();
 
-        // 预编译 SQL 语句
-        using var deleteDocCmd = connection.CreateCommand();
-        deleteDocCmd.Transaction = transaction;
-        deleteDocCmd.CommandText = "DELETE FROM DocIndex WHERE FilePath = @FilePath;";
-        var pDelDocPath = deleteDocCmd.Parameters.Add("@FilePath", SqliteType.Text);
-
-        using var deleteRecordCmd = connection.CreateCommand();
-        deleteRecordCmd.Transaction = transaction;
-        deleteRecordCmd.CommandText = "DELETE FROM FileRecords WHERE FilePath = @FilePath;";
-        var pDelRecPath = deleteRecordCmd.Parameters.Add("@FilePath", SqliteType.Text);
-
-        using var insertRecordCmd = connection.CreateCommand();
-        insertRecordCmd.Transaction = transaction;
-        insertRecordCmd.CommandText = @"
+        // 1. 写入/更新 FileRecords 表
+        using var cmdRec = connection.CreateCommand();
+        cmdRec.Transaction = transaction;
+        cmdRec.CommandText = @"
             INSERT INTO FileRecords (FilePath, LastModified, FileSize)
-            VALUES (@FilePath, @LastModified, @FileSize);
+            VALUES (@FilePath, @LastModified, @FileSize)
+            ON CONFLICT(FilePath) DO UPDATE SET
+                LastModified = excluded.LastModified,
+                FileSize = excluded.FileSize;
         ";
-        var pRecPath = insertRecordCmd.Parameters.Add("@FilePath", SqliteType.Text);
-        var pRecMod = insertRecordCmd.Parameters.Add("@LastModified", SqliteType.Integer);
-        var pRecSize = insertRecordCmd.Parameters.Add("@FileSize", SqliteType.Integer);
+        var pRecPath = cmdRec.Parameters.Add("@FilePath", SqliteType.Text);
+        var pRecMod = cmdRec.Parameters.Add("@LastModified", SqliteType.Integer);
+        var pRecSize = cmdRec.Parameters.Add("@FileSize", SqliteType.Integer);
 
-        using var insertDocCmd = connection.CreateCommand();
-        insertDocCmd.Transaction = transaction;
-        insertDocCmd.CommandText = @"
+        foreach (var rec in recordList)
+        {
+            pRecPath.Value = rec.FilePath;
+            pRecMod.Value = rec.LastModified;
+            pRecSize.Value = rec.FileSize;
+            cmdRec.ExecuteNonQuery();
+        }
+
+        // 2. 写入/更新 DocIndex (FTS5) 虚拟表
+        using var cmdDoc = connection.CreateCommand();
+        cmdDoc.Transaction = transaction;
+        cmdDoc.CommandText = @"
+            DELETE FROM DocIndex WHERE FilePath = @FilePath;
             INSERT INTO DocIndex (FilePath, Title, Content)
             VALUES (@FilePath, @Title, @Content);
         ";
-        var pDocPath = insertDocCmd.Parameters.Add("@FilePath", SqliteType.Text);
-        var pDocTitle = insertDocCmd.Parameters.Add("@Title", SqliteType.Text);
-        var pDocContent = insertDocCmd.Parameters.Add("@Content", SqliteType.Text);
+        var pDocPath = cmdDoc.Parameters.Add("@FilePath", SqliteType.Text);
+        var pDocTitle = cmdDoc.Parameters.Add("@Title", SqliteType.Text);
+        var pDocContent = cmdDoc.Parameters.Add("@Content", SqliteType.Text);
 
-        foreach (var (info, title, content) in items)
+        foreach (var doc in docList)
         {
-            var fullPath = info.FullName;
-
-            // 1. 删除旧记录
-            pDelDocPath.Value = fullPath;
-            deleteDocCmd.ExecuteNonQuery();
-
-            pDelRecPath.Value = fullPath;
-            deleteRecordCmd.ExecuteNonQuery();
-
-            // 2. 插入元数据记录
-            pRecPath.Value = fullPath;
-            pRecMod.Value = info.LastWriteTimeUtc.Ticks;
-            pRecSize.Value = info.Length;
-            insertRecordCmd.ExecuteNonQuery();
-
-            // 3. 插入 FTS5 倒排索引
-            pDocPath.Value = fullPath;
-            pDocTitle.Value = title;
-            pDocContent.Value = content;
-            insertDocCmd.ExecuteNonQuery();
+            pDocPath.Value = doc.FilePath;
+            pDocTitle.Value = doc.Title;
+            pDocContent.Value = doc.Content;
+            cmdDoc.ExecuteNonQuery();
         }
 
-        // 提交事务
         transaction.Commit();
     }
 
     /// <summary>
-    /// 加载已有文件的元数据缓存
+    /// 加载现存的所有文件元数据字典
     /// </summary>
     private Dictionary<string, FileRecord> LoadExistingFileRecords()
     {
         var dict = new Dictionary<string, FileRecord>(StringComparer.OrdinalIgnoreCase);
+
         using var connection = _dbManager.CreateConnection();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT FileId, FilePath, LastModified, FileSize FROM FileRecords;";
@@ -269,12 +372,13 @@ public class IndexingEngine : IDisposable
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            var record = new FileRecord(
-                reader.GetInt32(0),
-                reader.GetString(1),
-                reader.GetInt64(2),
-                reader.GetInt64(3)
-            );
+            var record = new FileRecord
+            {
+                FileId = reader.GetInt64(0),
+                FilePath = reader.GetString(1),
+                LastModified = reader.GetInt64(2),
+                FileSize = reader.GetInt64(3)
+            };
             dict[record.FilePath] = record;
         }
 
@@ -310,35 +414,6 @@ public class IndexingEngine : IDisposable
             pRecPath.Value = path;
             delRecCmd.ExecuteNonQuery();
         }
-
-        transaction.Commit();
-    }
-
-    /// <summary>
-    /// 移除指定目录及其所有子目录下已索引的图纸记录与倒排全文索引
-    /// </summary>
-    /// <param name="directoryPath">要移除的目录路径</param>
-    public void RemoveDirectoryIndex(string directoryPath)
-    {
-        if (string.IsNullOrWhiteSpace(directoryPath)) return;
-
-        string normalized = directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        string prefix1 = normalized + Path.DirectorySeparatorChar + "%";
-        string prefix2 = normalized + Path.AltDirectorySeparatorChar + "%";
-
-        using var connection = _dbManager.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-
-        using var cmd = connection.CreateCommand();
-        cmd.Transaction = transaction;
-        cmd.CommandText = @"
-            DELETE FROM DocIndex WHERE FilePath = @exactPath OR FilePath LIKE @p1 OR FilePath LIKE @p2;
-            DELETE FROM FileRecords WHERE FilePath = @exactPath OR FilePath LIKE @p1 OR FilePath LIKE @p2;
-        ";
-        cmd.Parameters.AddWithValue("@exactPath", normalized);
-        cmd.Parameters.AddWithValue("@p1", prefix1);
-        cmd.Parameters.AddWithValue("@p2", prefix2);
-        cmd.ExecuteNonQuery();
 
         transaction.Commit();
     }

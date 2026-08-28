@@ -74,8 +74,8 @@
 
         <!-- 底部确定按钮 -->
         <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="BtnSave" Content="保存并应用" Style="{StaticResource ModernButton}" Width="100" Click="Save_Click" Margin="0,0,10,0" />
-            <Button x:Name="BtnCancel" Content="取消" Style="{StaticResource SecondaryButton}" Width="80" Click="Cancel_Click" />
+            <Button x:Name="BtnSave" Content="保存并应用" Style="{StaticResource ModernButton}" MinWidth="110" Padding="14,4" Click="Save_Click" Margin="0,0,10,0" />
+            <Button x:Name="BtnCancel" Content="取消" Style="{StaticResource SecondaryButton}" MinWidth="85" Padding="12,4" Click="Cancel_Click" />
         </StackPanel>
     </Grid>
 </Window>

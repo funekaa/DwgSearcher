@@ -192,25 +192,7 @@ public partial class SettingsWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        // 1. 彻底从 SQLite 数据库移除已删除文件夹下的所有图纸索引
-        if (_removedFolderPaths.Count > 0)
-        {
-            foreach (var removedPath in _removedFolderPaths)
-            {
-                try
-                {
-                    _indexEngine.RemoveDirectoryIndex(removedPath);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"[SettingsWindow] 移除目录索引失败 ({removedPath}): {ex.Message}");
-                }
-            }
-            _removedFolderPaths.Clear();
-            NeedsReindex = true;
-        }
-
-        // 2. 保存新配置
+        // 1. 保存新配置
         _config.Folders = _folders.Select(f => new WatchFolder
         {
             Path = f.Path,
@@ -221,6 +203,22 @@ public partial class SettingsWindow : Window
         _config.AutoSyncOnChange = AutoSyncCheckBox.IsChecked == true;
         _config.Language = LocalizationService.CurrentLanguage;
         ConfigService.Save(_config);
+
+        // 2. 彻底从 SQLite 数据库全面清理所有非受管文件夹下的图纸索引
+        try
+        {
+            int purged = _indexEngine.PurgeUnmanagedIndexes(_config.Folders);
+            if (purged > 0 || _removedFolderPaths.Count > 0)
+            {
+                NeedsReindex = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[SettingsWindow] 清理非受管目录索引失败: {ex.Message}");
+        }
+
+        _removedFolderPaths.Clear();
 
         DialogResult = true;
         Close();

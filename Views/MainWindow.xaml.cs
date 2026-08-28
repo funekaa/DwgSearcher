@@ -119,6 +119,17 @@ public partial class MainWindow : Window
     {
         StatusTextBlock.Text = LocalizationService.Get("StatusScanning");
 
+        // 1. 先清理非受管目录的残留索引
+        try
+        {
+            _indexEngine.PurgeUnmanagedIndexes(_config.Folders);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[MainWindow] 清理残留索引失败: {ex.Message}");
+        }
+
+        // 2. 扫描受管目录
         foreach (var folder in _config.Folders)
         {
             if (folder.Enabled && Directory.Exists(folder.Path))
