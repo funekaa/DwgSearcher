@@ -23,6 +23,7 @@ public class AppConfig
     public int MaxSearchResults { get; set; } = 100;
     public string LastSearchKeyword { get; set; } = string.Empty;
     public string Language { get; set; } = "zh-CN";
+    public string UpdateUrl { get; set; } = "https://github.com/funekaa/DwgSearcher";
 }
 
 /// <summary>

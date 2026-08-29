@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -76,6 +77,11 @@ public partial class SettingsWindow : Window
         FoldersDataGrid.ItemsSource = _folders;
         AutoSyncCheckBox.IsChecked = _config.AutoSyncOnChange;
 
+        // 初始化更新地址
+        UpdateUrlTextBox.Text = string.IsNullOrWhiteSpace(_config.UpdateUrl)
+            ? "https://github.com/funekaa/DwgSearcher"
+            : _config.UpdateUrl;
+
         // 初始化多语言下拉选项
         LanguageComboBox.ItemsSource = LocalizationService.SupportedLanguages;
         LanguageComboBox.SelectedValue = LocalizationService.CurrentLanguage;
@@ -104,6 +110,8 @@ public partial class SettingsWindow : Window
         AutoSyncCheckBox.Content = LocalizationService.Get("ChkAutoSync");
         SettingsNoteTextBlock.Text = LocalizationService.Get("SettingsNote");
         LanguageLabelTextBlock.Text = LocalizationService.Get("SettingsLangSection");
+        UpdateUrlLabelTextBlock.Text = LocalizationService.Get("SettingsUpdateSection");
+        BtnOpenUpdateUrl.Content = LocalizationService.Get("BtnOpenUpdateUrl");
         BtnSave.Content = LocalizationService.Get("BtnSaveApply");
         BtnCancel.Content = LocalizationService.Get("BtnCancel");
 
@@ -111,6 +119,28 @@ public partial class SettingsWindow : Window
         foreach (var item in _folders)
         {
             item.NotifyLanguageChanged();
+        }
+    }
+
+    private void OpenUpdateUrl_Click(object sender, RoutedEventArgs e)
+    {
+        string url = UpdateUrlTextBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            url = "https://github.com/funekaa/DwgSearcher";
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to open URL: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -202,6 +232,7 @@ public partial class SettingsWindow : Window
 
         _config.AutoSyncOnChange = AutoSyncCheckBox.IsChecked == true;
         _config.Language = LocalizationService.CurrentLanguage;
+        _config.UpdateUrl = UpdateUrlTextBox.Text.Trim();
         ConfigService.Save(_config);
 
         // 2. 彻底从 SQLite 数据库全面清理所有非受管文件夹下的图纸索引
