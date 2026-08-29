@@ -30,13 +30,10 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 应用品牌名称与精美图标及版本号 -->
+                <!-- 应用品牌名称与精美图标 -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,18,0">
                     <Image Source="/app.png" Width="28" Height="28" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
                     <TextBlock Text="DwgSearcher" FontSize="18" FontWeight="Bold" Foreground="#0078D4" VerticalAlignment="Center" />
-                    <Border Background="#EBF3FC" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock x:Name="AppVersionTextBlock" Text="v1.0.11" FontSize="11" FontWeight="SemiBold" Foreground="#0078D4" />
-                    </Border>
                 </StackPanel>
 
                 <!-- 搜索输入框容器 -->

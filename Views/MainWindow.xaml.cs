@@ -63,7 +63,6 @@ public partial class MainWindow : Window
     private void ApplyLocalization()
     {
         Title = $"{LocalizationService.Get("AppTitle")} {AppVersionInfo.Version}";
-        AppVersionTextBlock.Text = AppVersionInfo.Version;
         WatermarkTextBlock.Text = LocalizationService.Get("SearchWatermark");
         BtnSyncIndex.Content = LocalizationService.Get("BtnSyncIndex");
         BtnSyncIndex.ToolTip = LocalizationService.Get("BtnSyncIndexTip");
