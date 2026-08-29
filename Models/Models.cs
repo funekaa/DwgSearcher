@@ -19,3 +19,19 @@ public record SearchResult(
     string Snippet,
     double Rank
 );
+
+/// <summary>
+/// 应用程序版本信息
+/// </summary>
+public static class AppVersionInfo
+{
+    public static string Version
+    {
+        get
+        {
+            var asm = typeof(AppVersionInfo).Assembly;
+            var ver = asm.GetName().Version;
+            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v1.0.11";
+        }
+    }
+}
