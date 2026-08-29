@@ -77,11 +77,6 @@ public partial class SettingsWindow : Window
         FoldersDataGrid.ItemsSource = _folders;
         AutoSyncCheckBox.IsChecked = _config.AutoSyncOnChange;
 
-        // 初始化更新地址
-        UpdateUrlTextBox.Text = string.IsNullOrWhiteSpace(_config.UpdateUrl)
-            ? "https://github.com/funekaa/DwgSearcher"
-            : _config.UpdateUrl;
-
         // 初始化多语言下拉选项
         LanguageComboBox.ItemsSource = LocalizationService.SupportedLanguages;
         LanguageComboBox.SelectedValue = LocalizationService.CurrentLanguage;
@@ -102,6 +97,7 @@ public partial class SettingsWindow : Window
     {
         Title = LocalizationService.Get("SettingsTitle");
         TitleTextBlock.Text = LocalizationService.Get("SettingsFolderSection");
+        UpdateLinkRun.Text = LocalizationService.Get("UpdateLink");
         ColFolderPath.Header = LocalizationService.Get("ColFolderPath");
         ColIncludeSub.Header = LocalizationService.Get("ColIncludeSub");
         ColAction.Header = LocalizationService.Get("ColAction");
@@ -110,8 +106,6 @@ public partial class SettingsWindow : Window
         AutoSyncCheckBox.Content = LocalizationService.Get("ChkAutoSync");
         SettingsNoteTextBlock.Text = LocalizationService.Get("SettingsNote");
         LanguageLabelTextBlock.Text = LocalizationService.Get("SettingsLangSection");
-        UpdateUrlLabelTextBlock.Text = LocalizationService.Get("SettingsUpdateSection");
-        BtnOpenUpdateUrl.Content = LocalizationService.Get("BtnOpenUpdateUrl");
         BtnSave.Content = LocalizationService.Get("BtnSaveApply");
         BtnCancel.Content = LocalizationService.Get("BtnCancel");
 
@@ -122,13 +116,11 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OpenUpdateUrl_Click(object sender, RoutedEventArgs e)
+    private void UpdateHyperlink_Click(object sender, RoutedEventArgs e)
     {
-        string url = UpdateUrlTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            url = "https://github.com/funekaa/DwgSearcher";
-        }
+        string url = string.IsNullOrWhiteSpace(_config.UpdateUrl)
+            ? "https://github.com/funekaa/DwgSearcher"
+            : _config.UpdateUrl;
 
         try
         {
@@ -232,7 +224,6 @@ public partial class SettingsWindow : Window
 
         _config.AutoSyncOnChange = AutoSyncCheckBox.IsChecked == true;
         _config.Language = LocalizationService.CurrentLanguage;
-        _config.UpdateUrl = UpdateUrlTextBox.Text.Trim();
         ConfigService.Save(_config);
 
         // 2. 彻底从 SQLite 数据库全面清理所有非受管文件夹下的图纸索引
