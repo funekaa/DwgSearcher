@@ -32,7 +32,7 @@ public partial class MainWindow : Window
 
         // 1. 初始化配置与语言
         _config = ConfigService.Load();
-        string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "dwg_index.db");
+        string dbPath = PathHelper.DatabasePath;
         _dbManager = new DatabaseManager(dbPath);
         _indexEngine = new IndexingEngine(_dbManager);
         _searchEngine = new SearchEngine(_dbManager);

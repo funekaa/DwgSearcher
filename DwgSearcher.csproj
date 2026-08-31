@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <LangVersion>12</LangVersion>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.0.18</Version>
+    <Version>1.0.19</Version>
     <SatelliteResourceLanguages>none</SatelliteResourceLanguages>
   </PropertyGroup>
 

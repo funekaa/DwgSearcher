@@ -31,7 +31,7 @@ public class AppConfig
 /// </summary>
 public static class ConfigService
 {
-    private static readonly string ConfigPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+    private static readonly string ConfigPath = PathHelper.ConfigPath;
     private static AppConfig? _current;
 
     public static AppConfig Load()
