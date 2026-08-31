@@ -102,7 +102,6 @@ public partial class SettingsWindow : Window
         ColIncludeSub.Header = LocalizationService.Get("ColIncludeSub");
         ColAction.Header = LocalizationService.Get("ColAction");
         BtnAddFolder.Content = LocalizationService.Get("BtnAddFolder");
-        BtnRebuildIndex.Content = LocalizationService.Get("BtnRebuildIndex");
         AutoSyncCheckBox.Content = LocalizationService.Get("ChkAutoSync");
         SettingsNoteTextBlock.Text = LocalizationService.Get("SettingsNote");
         LanguageLabelTextBlock.Text = LocalizationService.Get("SettingsLangSection");
@@ -177,55 +176,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void RebuildIndex_Click(object sender, RoutedEventArgs e)
-    {
-        if (MessageBox.Show(LocalizationService.Get("MsgRebuildConfirm"), "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-        {
-            IsEnabled = false;
-            RebuildProgressPanel.Visibility = Visibility.Visible;
-            RebuildProgressBar.Value = 0;
-            RebuildProgressText.Text = "0%";
 
-            try
-            {
-                // 先清理已移除的文件夹索引
-                foreach (var removedPath in _removedFolderPaths)
-                {
-                    _indexEngine.RemoveDirectoryIndex(removedPath);
-                }
-                _removedFolderPaths.Clear();
-
-                var progress = new Progress<IndexingProgress>(p =>
-                {
-                    if (p.TotalFiles > 0)
-                    {
-                        int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
-                        RebuildProgressBar.Value = percent;
-                        RebuildProgressText.Text = $"{p.ProcessedFiles}/{p.TotalFiles} ({percent}%)";
-                    }
-                });
-
-                // 重新扫描现有文件夹
-                foreach (var folder in _folders)
-                {
-                    if (Directory.Exists(folder.Path))
-                    {
-                        await _indexEngine.IndexDirectoryAsync(folder.Path, progress: progress);
-                    }
-                }
-                MessageBox.Show(LocalizationService.Get("MsgRebuildSuccess"), "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                RebuildProgressPanel.Visibility = Visibility.Collapsed;
-                IsEnabled = true;
-            }
-        }
-    }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
