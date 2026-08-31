@@ -62,6 +62,10 @@ public class FileWatcherService : IDisposable
                     EnqueueChange(e.FullPath);
                 };
                 watcher.Deleted += (s, e) => EnqueueChange(e.FullPath);
+                watcher.Error += (s, e) =>
+                {
+                    Console.Error.WriteLine($"[FileWatcherService] Watcher error on {folder.Path}: {e.GetException()?.Message}");
+                };
 
                 _watchers.Add(watcher);
             }

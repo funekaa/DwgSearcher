@@ -53,10 +53,8 @@ public class IndexingEngine : IDisposable
         if (!Directory.Exists(directoryPath))
             return;
 
-        // 1. 枚举所有支持的磁盘文件
-        var diskFiles = Directory.EnumerateFiles(directoryPath, "*.*", SearchOption.AllDirectories)
-            .Where(file => _extractorRegistry.IsSupported(file))
-            .ToList();
+        // 1. 安全枚举所有支持的磁盘文件（自动跳过系统保护、隐藏及权限受限目录）
+        var diskFiles = SafeEnumerateSupportedFiles(directoryPath).ToList();
 
         // 2. 加载数据库中现存的文件元数据缓存
         var existingRecords = LoadExistingFileRecords();
@@ -424,6 +422,100 @@ public class IndexingEngine : IDisposable
         }
 
         transaction.Commit();
+    }
+
+    private static readonly HashSet<string> IgnoredDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "System Volume Information",
+        "$RECYCLE.BIN",
+        "$Recycle.Bin",
+        "Recycled",
+        "Recycler",
+        "Config.Msi",
+        ".git",
+        ".svn",
+        ".vs",
+        "node_modules",
+        "Windows",
+        "AppData"
+    };
+
+    /// <summary>
+    /// 安全递归遍历目录并枚举所有支持的文件，自动跳过系统保护、隐藏及无权访问的目录（如 System Volume Information）
+    /// </summary>
+    private IEnumerable<string> SafeEnumerateSupportedFiles(string rootPath)
+    {
+        var directoriesToVisit = new Stack<string>();
+        directoriesToVisit.Push(rootPath);
+
+        while (directoriesToVisit.Count > 0)
+        {
+            string currentDir = directoriesToVisit.Pop();
+
+            // 1. 枚举当前目录下的文件
+            string[]? files = null;
+            try
+            {
+                files = Directory.GetFiles(currentDir);
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (PathTooLongException) { }
+            catch (DirectoryNotFoundException) { }
+            catch (IOException) { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[IndexingEngine] 无法读取文件目录 {currentDir}: {ex.Message}");
+            }
+
+            if (files != null)
+            {
+                foreach (var file in files)
+                {
+                    if (_extractorRegistry.IsSupported(file))
+                    {
+                        yield return file;
+                    }
+                }
+            }
+
+            // 2. 枚举当前目录下的子目录并入栈
+            string[]? subDirs = null;
+            try
+            {
+                subDirs = Directory.GetDirectories(currentDir);
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (PathTooLongException) { }
+            catch (DirectoryNotFoundException) { }
+            catch (IOException) { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[IndexingEngine] 无法访问子目录 {currentDir}: {ex.Message}");
+            }
+
+            if (subDirs != null)
+            {
+                foreach (var dir in subDirs)
+                {
+                    try
+                    {
+                        var dirInfo = new DirectoryInfo(dir);
+                        string dirName = dirInfo.Name;
+
+                        // 忽略黑名单系统目录
+                        if (IgnoredDirectoryNames.Contains(dirName))
+                            continue;
+
+                        // 忽略带有重解析点 (符号链接/Junction) 的目录，防止递归死循环
+                        if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                            continue;
+
+                        directoriesToVisit.Push(dir);
+                    }
+                    catch { }
+                }
+            }
+        }
     }
 
     public void Dispose()
