@@ -14,9 +14,9 @@ publish/
 *.db-wal
 *.db-shm
 
-## CAD Temporary Lock Files
-*.dwl
-*.dwl2
+## Test Data
+TestData/
+testdata/
 
 ## OS Files
 Thumbs.db

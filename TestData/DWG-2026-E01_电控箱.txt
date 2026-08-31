@@ -1,6 +1,0 @@
-图号: DWG-2026-E01
-图纸名称: PLC控制柜电气原理接线图
-主回路断路器: Schneider GV2-ME20C (额定电流 13-18A)
-变频器型号: ABB ACS580-01-026A-4 (11kW)
-控制核心: Siemens S7-1200 CPU 1214C DC/DC/DC
-防护等级: IP54

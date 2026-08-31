@@ -57,14 +57,8 @@ public static class ConfigService
             }
         }
 
-        // 默认初始化：包含当前目录下的 TestData 文件夹
+        // 默认初始化配置
         _current = new AppConfig();
-        string defaultTestData = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestData");
-        if (Directory.Exists(defaultTestData))
-        {
-            _current.Folders.Add(new WatchFolder { Path = defaultTestData, IncludeSubdirectories = true });
-        }
-
         LocalizationService.CurrentLanguage = _current.Language;
         Save(_current);
         return _current;
