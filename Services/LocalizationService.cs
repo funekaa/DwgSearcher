@@ -60,8 +60,8 @@ public static class LocalizationService
         {
             ["AppTitle"] = "DwgSearcher - 本地 CAD 图纸全文检索器",
             ["SearchWatermark"] = "输入图号、设计者、文字、标注尺寸、属性等关键词检索 (支持中英文子串)...",
-            ["BtnSyncIndex"] = "🔄 增量更新",
-            ["BtnSyncIndexTip"] = "立即扫描监控目录下的新增与变动图纸",
+            ["BtnSearch"] = "🔍 搜索",
+            ["BtnSearchTip"] = "立即执行图纸全文检索",
             ["BtnSettings"] = "⚙ 设置",
             ["BtnSettingsTip"] = "添加/管理图纸监控目录、多语言与自动同步选项",
             ["ResultWaiting"] = "等待输入检索...",
@@ -116,8 +116,8 @@ public static class LocalizationService
         {
             ["AppTitle"] = "DwgSearcher - Local CAD Drawing Full-Text Searcher",
             ["SearchWatermark"] = "Search drawing number, designer, text, dimension, attributes (substring supported)...",
-            ["BtnSyncIndex"] = "🔄 Sync Index",
-            ["BtnSyncIndexTip"] = "Scan watched folders for newly added or modified drawings",
+            ["BtnSearch"] = "🔍 Search",
+            ["BtnSearchTip"] = "Execute CAD drawing full-text search",
             ["BtnSettings"] = "⚙ Settings",
             ["BtnSettingsTip"] = "Manage watch folders, language, and auto-sync options",
             ["ResultWaiting"] = "Waiting for search query...",
@@ -172,8 +172,8 @@ public static class LocalizationService
         {
             ["AppTitle"] = "DwgSearcher - 本地 CAD 圖紙全文檢索器",
             ["SearchWatermark"] = "輸入圖號、設計者、文字、標注尺寸、屬性等關鍵字檢索 (支援中英文子字串)...",
-            ["BtnSyncIndex"] = "🔄 增量更新",
-            ["BtnSyncIndexTip"] = "立即掃描監控目錄下的新增與變動圖紙",
+            ["BtnSearch"] = "🔍 搜尋",
+            ["BtnSearchTip"] = "立即執行圖紙全文檢索",
             ["BtnSettings"] = "⚙ 設定",
             ["BtnSettingsTip"] = "新增/管理圖紙監控目錄、多語言與自動同步選項",
             ["ResultWaiting"] = "等待輸入檢索...",

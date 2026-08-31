@@ -64,8 +64,8 @@ public partial class MainWindow : Window
     {
         Title = $"{LocalizationService.Get("AppTitle")} {AppVersionInfo.Version}";
         WatermarkTextBlock.Text = LocalizationService.Get("SearchWatermark");
-        BtnSyncIndex.Content = LocalizationService.Get("BtnSyncIndex");
-        BtnSyncIndex.ToolTip = LocalizationService.Get("BtnSyncIndexTip");
+        BtnSearch.Content = LocalizationService.Get("BtnSearch");
+        BtnSearch.ToolTip = LocalizationService.Get("BtnSearchTip");
         BtnSettings.Content = LocalizationService.Get("BtnSettings");
         BtnSettings.ToolTip = LocalizationService.Get("BtnSettingsTip");
 
@@ -368,14 +368,13 @@ public partial class MainWindow : Window
         _selectedItem = null;
     }
 
-    private async void SyncIndex_Click(object sender, RoutedEventArgs e)
+    private void SearchButton_Click(object sender, RoutedEventArgs e)
     {
-        StatusTextBlock.Text = LocalizationService.Get("StatusSyncing");
-        await PerformInitialIndexAsync();
+        _searchDebounceTimer.Stop();
         ExecuteSearch(SearchBox.Text);
     }
 
-    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    private async void OpenSettings_Click(object sender, RoutedEventArgs e)
     {
         var settingsWin = new SettingsWindow(_config, _indexEngine)
         {
@@ -387,7 +386,9 @@ public partial class MainWindow : Window
             _watcherService.ReloadWatchers(_config);
             if (settingsWin.NeedsReindex)
             {
-                SyncIndex_Click(sender, e);
+                StatusTextBlock.Text = LocalizationService.Get("StatusSyncing");
+                await PerformInitialIndexAsync();
+                ExecuteSearch(SearchBox.Text);
             }
             else
             {

@@ -79,8 +79,8 @@
 
                 <!-- 顶部右侧快捷按钮栏 -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnSyncIndex" Content="🔄 增量更新" Style="{StaticResource SecondaryButton}" Click="SyncIndex_Click" Margin="0,0,8,0" />
-                    <Button x:Name="BtnSettings" Content="⚙ 目录设置" Style="{StaticResource ModernButton}" Click="OpenSettings_Click" />
+                    <Button x:Name="BtnSearch" Content="🔍 搜索" Style="{StaticResource ModernButton}" Click="SearchButton_Click" Margin="0,0,8,0" />
+                    <Button x:Name="BtnSettings" Content="⚙ 设置" Style="{StaticResource SecondaryButton}" Click="OpenSettings_Click" />
                 </StackPanel>
             </Grid>
         </Border>
