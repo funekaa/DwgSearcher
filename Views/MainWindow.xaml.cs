@@ -266,6 +266,7 @@ public partial class MainWindow : Window
 
         var paragraph = new Paragraph { LineHeight = 22 };
         var tokens = keyword.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        Run? firstHighlightRun = null;
 
         if (tokens.Length == 0)
         {
@@ -306,6 +307,11 @@ public partial class MainWindow : Window
                     };
                     paragraph.Inlines.Add(highlightRun);
 
+                    if (firstHighlightRun == null)
+                    {
+                        firstHighlightRun = highlightRun;
+                    }
+
                     currentIndex = nextMatchIndex + matchedToken.Length;
                 }
                 else
@@ -319,6 +325,19 @@ public partial class MainWindow : Window
 
         doc.Blocks.Add(paragraph);
         ContentRichTextBox.Document = doc;
+
+        // 自动滚动到首个命中关键词所在的可视位置
+        if (firstHighlightRun != null)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                firstHighlightRun.BringIntoView();
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+        else
+        {
+            ContentRichTextBox.ScrollToHome();
+        }
     }
 
     private void ClearDetailsView()

@@ -8,7 +8,8 @@
     <UseWPF>true</UseWPF>
     <LangVersion>12</LangVersion>
     <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.0.14</Version>
+    <Version>1.0.15</Version>
+    <SatelliteResourceLanguages>none</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,5 +22,13 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="ACadSharp" Version="3.7.1" />
   </ItemGroup>
+
+  <!-- 自动清理 .NET / WPF 框架默认输出的多余语言附属程序集目录 -->
+  <Target Name="RemoveSatelliteAssemblies" AfterTargets="Publish">
+    <ItemGroup>
+      <SatelliteDirectories Include="$(PublishDir)cs;$(PublishDir)de;$(PublishDir)es;$(PublishDir)fr;$(PublishDir)it;$(PublishDir)ja;$(PublishDir)ko;$(PublishDir)pl;$(PublishDir)pt-BR;$(PublishDir)ru;$(PublishDir)tr;$(PublishDir)zh-Hans;$(PublishDir)zh-Hant" />
+    </ItemGroup>
+    <RemoveDir Directories="@(SatelliteDirectories)" />
+  </Target>
 
 </Project>

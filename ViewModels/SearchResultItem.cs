@@ -26,7 +26,7 @@ public class SearchResultItem
     {
         Title = model.Title;
         FilePath = model.FilePath;
-        Snippet = model.Snippet;
+        Snippet = model.Snippet.Replace("<b>", "").Replace("</b>", "").Trim();
         Rank = model.Rank;
 
         // 提取系统关联的文件图标
