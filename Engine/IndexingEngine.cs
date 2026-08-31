@@ -161,8 +161,17 @@ public class IndexingEngine : IDisposable
                 }
                 finally
                 {
-                    Interlocked.Increment(ref processedCount);
+                    int currentProcessed = Interlocked.Increment(ref processedCount);
                     semaphore.Release();
+
+                    progress?.Report(new IndexingProgress(
+                        TotalFiles: totalToProcess,
+                        ProcessedFiles: currentProcessed,
+                        IndexedFiles: indexedCount,
+                        SkippedFiles: skippedCount,
+                        FailedFiles: failedCount,
+                        CurrentFile: Path.GetFileName(fileInfo.FullName)
+                    ));
                 }
             }, cancellationToken));
 

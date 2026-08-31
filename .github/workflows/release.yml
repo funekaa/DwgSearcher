@@ -31,7 +31,7 @@ jobs:
       run: |
         $version = "${{ github.ref_name }}"
         if ([string]::IsNullOrWhiteSpace($version) -or $version -eq "main") {
-            $version = "v1.0.15"
+            $version = "v1.0.16"
         }
         $zipName = "DwgSearcher-$version-win-x64.zip"
         Compress-Archive -Path DwgSearcher-win-x64 -DestinationPath $zipName

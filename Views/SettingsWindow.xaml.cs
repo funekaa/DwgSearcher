@@ -182,6 +182,10 @@ public partial class SettingsWindow : Window
         if (MessageBox.Show(LocalizationService.Get("MsgRebuildConfirm"), "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
         {
             IsEnabled = false;
+            RebuildProgressPanel.Visibility = Visibility.Visible;
+            RebuildProgressBar.Value = 0;
+            RebuildProgressText.Text = "0%";
+
             try
             {
                 // 先清理已移除的文件夹索引
@@ -191,12 +195,22 @@ public partial class SettingsWindow : Window
                 }
                 _removedFolderPaths.Clear();
 
+                var progress = new Progress<IndexingProgress>(p =>
+                {
+                    if (p.TotalFiles > 0)
+                    {
+                        int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
+                        RebuildProgressBar.Value = percent;
+                        RebuildProgressText.Text = $"{p.ProcessedFiles}/{p.TotalFiles} ({percent}%)";
+                    }
+                });
+
                 // 重新扫描现有文件夹
                 foreach (var folder in _folders)
                 {
                     if (Directory.Exists(folder.Path))
                     {
-                        await _indexEngine.IndexDirectoryAsync(folder.Path);
+                        await _indexEngine.IndexDirectoryAsync(folder.Path, progress: progress);
                     }
                 }
                 MessageBox.Show(LocalizationService.Get("MsgRebuildSuccess"), "Success", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -207,6 +221,7 @@ public partial class SettingsWindow : Window
             }
             finally
             {
+                RebuildProgressPanel.Visibility = Visibility.Collapsed;
                 IsEnabled = true;
             }
         }

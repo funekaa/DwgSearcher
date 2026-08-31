@@ -255,10 +255,23 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock x:Name="StatusTextBlock" Grid.Column="0" Text="就绪" FontSize="11.5" Foreground="#555555" />
-                <TextBlock x:Name="DbInfoTextBlock" Grid.Column="1" Text="DwgSearcher (SQLite FTS5 + WAL 引擎)" FontSize="11.5" Foreground="#777777" />
+                <!-- 左侧：状态文本 / 实时解析信息 -->
+                <TextBlock x:Name="StatusTextBlock" Grid.Column="0" Text="就绪" FontSize="11.5" Foreground="#555555" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                <!-- 中间：实时进度条与百分比数值 -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <ProgressBar x:Name="IndexingProgressBar" Width="140" Height="10" Minimum="0" Maximum="100" 
+                                 Foreground="#0078D4" Background="#D5D5D5" BorderThickness="0" 
+                                 VerticalAlignment="Center" Visibility="Collapsed" Margin="0,0,8,0" />
+                    <TextBlock x:Name="ProgressValueTextBlock" Text="0%" FontSize="11.5" FontWeight="SemiBold" 
+                               Foreground="#0078D4" VerticalAlignment="Center" Visibility="Collapsed" />
+                </StackPanel>
+
+                <!-- 右侧：数据库引擎信息 -->
+                <TextBlock x:Name="DbInfoTextBlock" Grid.Column="2" Text="DwgSearcher (SQLite FTS5 + WAL 引擎)" FontSize="11.5" Foreground="#777777" VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>

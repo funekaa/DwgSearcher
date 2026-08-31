@@ -118,6 +118,10 @@ public partial class MainWindow : Window
     private async Task PerformInitialIndexAsync()
     {
         StatusTextBlock.Text = LocalizationService.Get("StatusScanning");
+        IndexingProgressBar.Visibility = Visibility.Visible;
+        ProgressValueTextBlock.Visibility = Visibility.Visible;
+        IndexingProgressBar.Value = 0;
+        ProgressValueTextBlock.Text = "0%";
 
         // 1. 先清理非受管目录的残留索引
         try
@@ -129,6 +133,17 @@ public partial class MainWindow : Window
             Console.Error.WriteLine($"[MainWindow] 清理残留索引失败: {ex.Message}");
         }
 
+        var progress = new Progress<IndexingProgress>(p =>
+        {
+            if (p.TotalFiles > 0)
+            {
+                int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
+                IndexingProgressBar.Value = percent;
+                ProgressValueTextBlock.Text = $"{percent}%";
+                StatusTextBlock.Text = LocalizationService.Get("StatusIndexingProgress", p.ProcessedFiles, p.TotalFiles, percent, p.CurrentFile);
+            }
+        });
+
         // 2. 扫描受管目录
         foreach (var folder in _config.Folders)
         {
@@ -136,7 +151,8 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    await _indexEngine.IndexDirectoryAsync(folder.Path);
+                    StatusTextBlock.Text = LocalizationService.Get("StatusScanningFolder", folder.Path);
+                    await _indexEngine.IndexDirectoryAsync(folder.Path, progress: progress);
                 }
                 catch (Exception ex)
                 {
@@ -145,6 +161,8 @@ public partial class MainWindow : Window
             }
         }
 
+        IndexingProgressBar.Visibility = Visibility.Collapsed;
+        ProgressValueTextBlock.Visibility = Visibility.Collapsed;
         UpdateSummaryAndStatus();
     }
 
