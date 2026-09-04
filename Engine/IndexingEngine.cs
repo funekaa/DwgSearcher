@@ -99,14 +99,6 @@ public class IndexingEngine : IDisposable
 
         if (totalToProcess == 0)
         {
-            progress?.Report(new IndexingProgress(
-                TotalFiles: diskFiles.Count,
-                ProcessedFiles: diskFiles.Count,
-                IndexedFiles: 0,
-                SkippedFiles: skippedCount,
-                FailedFiles: 0,
-                CurrentFile: "已全部是最新索引"
-            ));
             return;
         }
 
@@ -197,7 +189,7 @@ public class IndexingEngine : IDisposable
             IndexedFiles: indexedCount,
             SkippedFiles: skippedCount,
             FailedFiles: failedCount,
-            CurrentFile: "索引完成"
+            CurrentFile: string.Empty
         ));
     }
 

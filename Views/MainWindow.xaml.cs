@@ -101,69 +101,107 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-        await PerformInitialIndexAsync();
+    private int _searchSequence = 0;
+    private bool _isIndexingInBackground = false;
 
+    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        // 1. 0 毫秒秒开：立即渲染已有索引数据，前台立即可用、立即可搜索
         if (!string.IsNullOrWhiteSpace(_config.LastSearchKeyword))
         {
             SearchBox.Text = _config.LastSearchKeyword;
+            ExecuteSearch(_config.LastSearchKeyword);
         }
         else
         {
             ExecuteSearch(string.Empty);
         }
+
+        // 2. 彻底放入后台独立线程执行增量索引检查，绝不阻塞前台操作与搜索
+        _ = Task.Run(async () =>
+        {
+            await PerformBackgroundIndexAsync();
+        });
     }
 
-    private async Task PerformInitialIndexAsync()
+    private async Task PerformBackgroundIndexAsync()
     {
-        StatusTextBlock.Text = LocalizationService.Get("StatusScanning");
-        IndexingProgressBar.Visibility = Visibility.Visible;
-        ProgressValueTextBlock.Visibility = Visibility.Visible;
-        IndexingProgressBar.Value = 0;
-        ProgressValueTextBlock.Text = "0%";
+        if (_isIndexingInBackground)
+            return;
 
-        // 1. 先清理非受管目录的残留索引
+        _isIndexingInBackground = true;
+
         try
         {
-            _indexEngine.PurgeUnmanagedIndexes(_config.Folders);
+            // 1. 清理非受管目录残留索引
+            try
+            {
+                _indexEngine.PurgeUnmanagedIndexes(_config.Folders);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[MainWindow] 清理残留索引失败: {ex.Message}");
+            }
+
+            var progress = new Progress<IndexingProgress>(p =>
+            {
+                if (p.TotalFiles > 0)
+                {
+                    int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
+                    IndexingProgressBar.Value = percent;
+                    ProgressValueTextBlock.Text = $"{percent}%";
+                    if (!string.IsNullOrWhiteSpace(p.CurrentFile))
+                    {
+                        StatusTextBlock.Text = LocalizationService.Get("StatusIndexingProgress", p.ProcessedFiles, p.TotalFiles, percent, p.CurrentFile);
+                    }
+                }
+            });
+
+            // 2. 扫描受管目录
+            bool hasScannedAny = false;
+            foreach (var folder in _config.Folders)
+            {
+                if (folder.Enabled && Directory.Exists(folder.Path))
+                {
+                    hasScannedAny = true;
+                    Dispatcher.Invoke(() =>
+                    {
+                        IndexingProgressBar.Visibility = Visibility.Visible;
+                        ProgressValueTextBlock.Visibility = Visibility.Visible;
+                        StatusTextBlock.Text = LocalizationService.Get("StatusScanningFolder", folder.Path);
+                    });
+
+                    await _indexEngine.IndexDirectoryAsync(folder.Path, progress: progress);
+                }
+            }
+
+            Dispatcher.Invoke(() =>
+            {
+                IndexingProgressBar.Visibility = Visibility.Collapsed;
+                ProgressValueTextBlock.Visibility = Visibility.Collapsed;
+                UpdateSummaryAndStatus();
+
+                // 若当前在前台处于空白检索，平滑刷新最新列表
+                if (string.IsNullOrWhiteSpace(SearchBox.Text))
+                {
+                    ExecuteSearch(string.Empty);
+                }
+            });
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[MainWindow] 清理残留索引失败: {ex.Message}");
-        }
-
-        var progress = new Progress<IndexingProgress>(p =>
-        {
-            if (p.TotalFiles > 0)
+            Console.Error.WriteLine($"[MainWindow] 后台索引失败: {ex.Message}");
+            Dispatcher.Invoke(() =>
             {
-                int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
-                IndexingProgressBar.Value = percent;
-                ProgressValueTextBlock.Text = $"{percent}%";
-                StatusTextBlock.Text = LocalizationService.Get("StatusIndexingProgress", p.ProcessedFiles, p.TotalFiles, percent, p.CurrentFile);
-            }
-        });
-
-        // 2. 扫描受管目录
-        foreach (var folder in _config.Folders)
-        {
-            if (folder.Enabled && Directory.Exists(folder.Path))
-            {
-                try
-                {
-                    StatusTextBlock.Text = LocalizationService.Get("StatusScanningFolder", folder.Path);
-                    await _indexEngine.IndexDirectoryAsync(folder.Path, progress: progress);
-                }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"[MainWindow] 扫描目录失败: {ex.Message}");
-                }
-            }
+                IndexingProgressBar.Visibility = Visibility.Collapsed;
+                ProgressValueTextBlock.Visibility = Visibility.Collapsed;
+                UpdateSummaryAndStatus();
+            });
         }
-
-        IndexingProgressBar.Visibility = Visibility.Collapsed;
-        ProgressValueTextBlock.Visibility = Visibility.Collapsed;
-        UpdateSummaryAndStatus();
+        finally
+        {
+            _isIndexingInBackground = false;
+        }
     }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -188,24 +226,33 @@ public partial class MainWindow : Window
         SearchBox.Focus();
     }
 
-    private void ExecuteSearch(string keyword)
+    private async void ExecuteSearch(string keyword)
     {
+        int currentSeq = Interlocked.Increment(ref _searchSequence);
         keyword = keyword.Trim();
         _config.LastSearchKeyword = keyword;
         ConfigService.Save(_config);
 
         var sw = Stopwatch.StartNew();
-        List<SearchResult> rawResults;
 
-        if (string.IsNullOrEmpty(keyword))
+        // 在后台线程执行 SQLite 全文检索，彻底防止 UI 卡顿
+        var rawResults = await Task.Run(() =>
         {
-            var allDocs = _searchEngine.GetAllIndexedDocs();
-            rawResults = allDocs.Select(d => new SearchResult(d.FilePath, d.Title, $"[{d.TextLength} chars]", 0.0)).ToList();
-        }
-        else
-        {
-            rawResults = _searchEngine.Search(keyword, limit: _config.MaxSearchResults);
-        }
+            if (string.IsNullOrEmpty(keyword))
+            {
+                var allDocs = _searchEngine.GetAllIndexedDocs();
+                return allDocs.Select(d => new SearchResult(d.FilePath, d.Title, $"[{d.TextLength} chars]", 0.0)).ToList();
+            }
+            else
+            {
+                return _searchEngine.Search(keyword, limit: _config.MaxSearchResults);
+            }
+        });
+
+        // 若在异步查询期间用户输入了新搜索词，则丢弃旧结果
+        if (currentSeq != _searchSequence)
+            return;
+
         sw.Stop();
 
         _currentResults = rawResults.Select(r => new SearchResultItem(r)).ToList();
@@ -387,8 +434,7 @@ public partial class MainWindow : Window
             if (settingsWin.NeedsReindex)
             {
                 StatusTextBlock.Text = LocalizationService.Get("StatusSyncing");
-                await PerformInitialIndexAsync();
-                ExecuteSearch(SearchBox.Text);
+                _ = Task.Run(async () => await PerformBackgroundIndexAsync());
             }
             else
             {

@@ -31,7 +31,7 @@ public static class AppVersionInfo
         {
             var asm = typeof(AppVersionInfo).Assembly;
             var ver = asm.GetName().Version;
-            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v1.0.19";
+            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v1.0.20";
         }
     }
 }
