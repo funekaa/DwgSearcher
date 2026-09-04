@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using DwgSearcher.Engine;
 using DwgSearcher.Models;
 using DwgSearcher.Services;
@@ -165,7 +166,6 @@ public partial class MainWindow : Window
             {
                 if (folder.Enabled && Directory.Exists(folder.Path))
                 {
-                    hasScannedAny = true;
                     Dispatcher.Invoke(() =>
                     {
                         IndexingProgressBar.Visibility = Visibility.Visible;
