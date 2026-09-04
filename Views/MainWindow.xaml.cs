@@ -145,20 +145,22 @@ public partial class MainWindow : Window
 
             var progress = new Progress<IndexingProgress>(p =>
             {
-                if (p.TotalFiles > 0)
+                Dispatcher.InvokeAsync(() =>
                 {
-                    int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
-                    IndexingProgressBar.Value = percent;
-                    ProgressValueTextBlock.Text = $"{percent}%";
-                    if (!string.IsNullOrWhiteSpace(p.CurrentFile))
+                    if (p.TotalFiles > 0)
                     {
-                        StatusTextBlock.Text = LocalizationService.Get("StatusIndexingProgress", p.ProcessedFiles, p.TotalFiles, percent, p.CurrentFile);
+                        int percent = (int)Math.Round((double)p.ProcessedFiles / p.TotalFiles * 100);
+                        IndexingProgressBar.Value = percent;
+                        ProgressValueTextBlock.Text = $"{percent}%";
+                        if (!string.IsNullOrWhiteSpace(p.CurrentFile))
+                        {
+                            StatusTextBlock.Text = LocalizationService.Get("StatusIndexingProgress", p.ProcessedFiles, p.TotalFiles, percent, p.CurrentFile);
+                        }
                     }
-                }
+                }, DispatcherPriority.Background);
             });
 
             // 2. 扫描受管目录
-            bool hasScannedAny = false;
             foreach (var folder in _config.Folders)
             {
                 if (folder.Enabled && Directory.Exists(folder.Path))
