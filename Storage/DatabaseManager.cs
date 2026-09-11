@@ -34,16 +34,32 @@ public class DatabaseManager : IDisposable
         var connection = new SqliteConnection(_connectionString);
         connection.Open();
 
-        // 为每个新连接配置关键 PRAGMA
+        // 为每个新连接配置关键 PRAGMA (低内存、高性能模式)
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
-            PRAGMA busy_timeout = 5000;
+            PRAGMA busy_timeout = 3000;
             PRAGMA temp_store = MEMORY;
-            PRAGMA mmap_size = 268435456; -- 256MB 内存映射加速
+            PRAGMA cache_size = -1000; -- 1MB 缓存
+            PRAGMA mmap_size = 8388608; -- 8MB 内存映射
         ";
         cmd.ExecuteNonQuery();
 
         return connection;
+    }
+
+    /// <summary>
+    /// 主动释放 SQLite 内部缓存内存
+    /// </summary>
+    public void ShrinkMemory()
+    {
+        try
+        {
+            using var connection = CreateConnection();
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "PRAGMA shrink_memory;";
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
     }
 
     /// <summary>

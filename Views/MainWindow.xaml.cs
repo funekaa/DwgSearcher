@@ -54,9 +54,20 @@ public partial class MainWindow : Window
         // 4. 监听语言切换事件
         LocalizationService.OnLanguageChanged += ApplyLocalization;
 
-        // 5. 窗体加载
+        // 5. 窗体生命周期与低内存驻留优化
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
+        StateChanged += (s, e) =>
+        {
+            if (WindowState == WindowState.Minimized)
+            {
+                MemoryOptimizer.TrimMemory();
+            }
+        };
+        Deactivated += (s, e) =>
+        {
+            Task.Delay(2000).ContinueWith(_ => MemoryOptimizer.TrimMemory());
+        };
 
         ApplyLocalization();
     }
@@ -209,6 +220,7 @@ public partial class MainWindow : Window
         finally
         {
             _isIndexingInBackground = false;
+            MemoryOptimizer.TrimMemory();
         }
     }
 

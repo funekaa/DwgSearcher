@@ -183,6 +183,9 @@ public class IndexingEngine : IDisposable
             FlushBatchToDatabase(docsToWrite);
         }
 
+        _dbManager.ShrinkMemory();
+        Services.MemoryOptimizer.TrimMemory();
+
         progress?.Report(new IndexingProgress(
             TotalFiles: totalToProcess,
             ProcessedFiles: processedCount,
