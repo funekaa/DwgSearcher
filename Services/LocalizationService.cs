@@ -90,7 +90,7 @@ public static class LocalizationService
 
     private record TagRule(string Key, Regex RegexPattern);
 
-    // 各种 CAD 实体标签在所有语言中的正则匹配器
+    // 各种 CAD 实体标签与内联字段在所有语言中的正则匹配器
     private static readonly List<TagRule> TagReplacementRules = new()
     {
         new("Dimension", new Regex(@"\[(标注|Dimension|標註|寸法|Bemaßung|치수|DIM)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
@@ -100,14 +100,21 @@ public static class LocalizationService
         new("Table", new Regex(@"\[(表格数据|表格|Table Data|Table|表格資料|表データ|Tabellendaten|테이블\s*데이터)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
         new("Leader", new Regex(@"\[(引线文字|引线|Leader|引線文字|引出線|Führungslinie|지시선)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
         new("MultiLeaderAttrPrefix", new Regex(@"\[(多重引线属性|MultiLeader Attr|多重引線屬性|マルチ引出線属性|Multi-Führung Attribut|다중\s*지시선\s*속성):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Tolerance", new Regex(@"\[(形位公差|Tolerance|幾何公差|Form- und Lagetoleranz|기하\s*공차|TOL)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("XRef", new Regex(@"\[(外部参照|XRef|外部參考|外部\s*참조)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Title", new Regex(@"\[(图纸标题|Title|圖紙標題|タイトル|Titel|제목)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Subject", new Regex(@"\[(图纸主题|Subject|圖紙主題|サブタイトル|Thema|주제)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Author", new Regex(@"\[(图纸作者|Author|圖紙作者|作成者|Autor|작성자)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Keywords", new Regex(@"\[(关键字|Keywords|關鍵字|キーワード|Schlüsselwörter|키워드)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Comments", new Regex(@"\[(图纸注释|Comments|圖紙註解|コメント|Kommentare|설명)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("Hyperlink", new Regex(@"\[(超链接|Hyperlink|超連結|ハイパーリンク|하이퍼링크)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase))
+        new("Tolerance", new Regex(@"\[(形位公差|公差|Tolerance|幾何公差|Form- und Lagetoleranz|기하\s*공차|TOL)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("XRef", new Regex(@"\[(外部参照XREF|外部参照|外部參考XREF|外部參考|XRef|外部\s*참조)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("CustomProp", new Regex(@"\[(自定义属性|Custom Property|Custom Prop|自訂屬性|カスタムプロパティ|Benutzerdefiniert|사용자\s*지정\s*속성)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Title", new Regex(@"\[(图纸标题|标题|Title|圖紙標題|標題|タイトル|Titel|제목)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Subject", new Regex(@"\[(图纸主题|主题|Subject|圖紙主題|主題|サブタイトル|Thema|주제)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Author", new Regex(@"\[(图纸作者|作者|Author|圖紙作者|作成者|Autor|작성자)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Keywords", new Regex(@"\[(关键字|关键词|Keywords|關鍵字|キーワード|Schlüsselwörter|키워드)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Comments", new Regex(@"\[(图纸注释|备注|注释|Comments|圖紙註解|備註|註解|コメント|Kommentare|설명)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("Hyperlink", new Regex(@"\[(超链接|Hyperlink|超連結|ハイパーリンク|하이퍼링크)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+
+        // 内联字段提示语本地化
+        new("BlockNameField", new Regex(@"(块名|Block Name|Block|圖塊名|圖塊名稱|ブロック名|Block-Name|블록 이름):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("PathField", new Regex(@"(路径|Path|路徑|パス|Pfad|경로):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("PromptField", new Regex(@"(提示|Prompt|プロンプト|Aufforderung|프롬프트):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("DefaultField", new Regex(@"(默认值|Default Value|Default|預設值|デフォルト値|Standardwert|기본값):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase))
     };
 
     // 目标语言对应的实体前缀标签字典
@@ -124,12 +131,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[多重引线属性: ",
             ["Tolerance"] = "[形位公差]",
             ["XRef"] = "[外部参照]",
+            ["CustomProp"] = "[自定义属性]",
             ["Title"] = "[图纸标题]",
             ["Subject"] = "[图纸主题]",
             ["Author"] = "[图纸作者]",
             ["Keywords"] = "[关键字]",
             ["Comments"] = "[图纸注释]",
-            ["Hyperlink"] = "[超链接]"
+            ["Hyperlink"] = "[超链接]",
+            ["BlockNameField"] = "块名: ",
+            ["PathField"] = "路径: ",
+            ["PromptField"] = "提示: ",
+            ["DefaultField"] = "默认值: "
         },
         ["en-US"] = new()
         {
@@ -142,12 +154,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[MultiLeader Attr: ",
             ["Tolerance"] = "[Tolerance]",
             ["XRef"] = "[XRef]",
+            ["CustomProp"] = "[Custom Prop]",
             ["Title"] = "[Title]",
             ["Subject"] = "[Subject]",
             ["Author"] = "[Author]",
             ["Keywords"] = "[Keywords]",
             ["Comments"] = "[Comments]",
-            ["Hyperlink"] = "[Hyperlink]"
+            ["Hyperlink"] = "[Hyperlink]",
+            ["BlockNameField"] = "Block: ",
+            ["PathField"] = "Path: ",
+            ["PromptField"] = "Prompt: ",
+            ["DefaultField"] = "Default: "
         },
         ["zh-TW"] = new()
         {
@@ -160,12 +177,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[多重引線屬性: ",
             ["Tolerance"] = "[形位公差]",
             ["XRef"] = "[外部參考]",
+            ["CustomProp"] = "[自訂屬性]",
             ["Title"] = "[圖紙標題]",
             ["Subject"] = "[圖紙主題]",
             ["Author"] = "[圖紙作者]",
             ["Keywords"] = "[關鍵字]",
             ["Comments"] = "[圖紙註解]",
-            ["Hyperlink"] = "[超連結]"
+            ["Hyperlink"] = "[超連結]",
+            ["BlockNameField"] = "圖塊名: ",
+            ["PathField"] = "路徑: ",
+            ["PromptField"] = "提示: ",
+            ["DefaultField"] = "預設值: "
         },
         ["ja-JP"] = new()
         {
@@ -178,12 +200,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[マルチ引出線属性: ",
             ["Tolerance"] = "[幾何公差]",
             ["XRef"] = "[外部参照]",
+            ["CustomProp"] = "[カスタムプロパティ]",
             ["Title"] = "[タイトル]",
             ["Subject"] = "[サブタイトル]",
             ["Author"] = "[作成者]",
             ["Keywords"] = "[キーワード]",
             ["Comments"] = "[コメント]",
-            ["Hyperlink"] = "[ハイパーリンク]"
+            ["Hyperlink"] = "[ハイパーリンク]",
+            ["BlockNameField"] = "ブロック名: ",
+            ["PathField"] = "パス: ",
+            ["PromptField"] = "プロンプト: ",
+            ["DefaultField"] = "デフォルト値: "
         },
         ["de-DE"] = new()
         {
@@ -196,12 +223,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[Multi-Führung Attribut: ",
             ["Tolerance"] = "[Form- und Lagetoleranz]",
             ["XRef"] = "[XRef]",
+            ["CustomProp"] = "[Benutzerdefiniert]",
             ["Title"] = "[Titel]",
             ["Subject"] = "[Thema]",
             ["Author"] = "[Autor]",
             ["Keywords"] = "[Schlüsselwörter]",
             ["Comments"] = "[Kommentare]",
-            ["Hyperlink"] = "[Hyperlink]"
+            ["Hyperlink"] = "[Hyperlink]",
+            ["BlockNameField"] = "Block: ",
+            ["PathField"] = "Pfad: ",
+            ["PromptField"] = "Aufforderung: ",
+            ["DefaultField"] = "Standardwert: "
         },
         ["ko-KR"] = new()
         {
@@ -214,12 +246,17 @@ public static class LocalizationService
             ["MultiLeaderAttrPrefix"] = "[다중 지시선 속성: ",
             ["Tolerance"] = "[기하 공차]",
             ["XRef"] = "[외부 참조]",
+            ["CustomProp"] = "[사용자 지정 속성]",
             ["Title"] = "[제목]",
             ["Subject"] = "[주제]",
             ["Author"] = "[작성자]",
             ["Keywords"] = "[키워드]",
             ["Comments"] = "[설명]",
-            ["Hyperlink"] = "[하이퍼링크]"
+            ["Hyperlink"] = "[하이퍼링크]",
+            ["BlockNameField"] = "블록 이름: ",
+            ["PathField"] = "경로: ",
+            ["PromptField"] = "프롬프트: ",
+            ["DefaultField"] = "기본값: "
         }
     };
 

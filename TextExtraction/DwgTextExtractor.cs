@@ -103,7 +103,7 @@ public class DwgTextExtractor : ITextExtractor
         {
             if (blockRecord.BlockEntity != null && !string.IsNullOrWhiteSpace(blockRecord.BlockEntity.XRefPath))
             {
-                sb.AppendLine($"[外部参照XREF] 块名: {blockRecord.Name}, 路径: {blockRecord.BlockEntity.XRefPath}");
+                sb.AppendLine($"[外部参照] 块名: {blockRecord.Name}, 路径: {blockRecord.BlockEntity.XRefPath}");
             }
         }
 
@@ -228,7 +228,7 @@ public class DwgTextExtractor : ITextExtractor
         {
             if (!string.IsNullOrWhiteSpace(tol.Text))
             {
-                sb.AppendLine($"[公差] {tol.Text}");
+                sb.AppendLine($"[形位公差] {tol.Text}");
             }
         }
     }
