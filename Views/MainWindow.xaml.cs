@@ -86,6 +86,12 @@ public partial class MainWindow : Window
 
         // 刷新列表统计文本
         UpdateSummaryAndStatus();
+
+        // 重新渲染当前选中的图纸详情（更新实体标签本地化）
+        if (_selectedItem != null)
+        {
+            DisplayItemDetails(_selectedItem);
+        }
     }
 
     private void UpdateSummaryAndStatus()
@@ -295,7 +301,10 @@ public partial class MainWindow : Window
         string? text = _searchEngine.GetDocContent(item.FilePath);
         _currentExtractedText = text ?? string.Empty;
 
-        RenderHighlightedContent(_currentExtractedText, SearchBox.Text.Trim());
+        // 动态本地化实体标签（如将 [标注] 自动翻译为 [Dimension] / [寸法] / [Bemaßung] / [치수] 等）
+        string localizedText = LocalizationService.LocalizeExtractedText(_currentExtractedText);
+
+        RenderHighlightedContent(localizedText, SearchBox.Text.Trim());
 
         var thumb = item.GetThumbnail();
         if (thumb != null)
@@ -478,7 +487,8 @@ public partial class MainWindow : Window
     {
         if (!string.IsNullOrEmpty(_currentExtractedText))
         {
-            Clipboard.SetText(_currentExtractedText);
+            string textToCopy = LocalizationService.LocalizeExtractedText(_currentExtractedText);
+            Clipboard.SetText(textToCopy);
             StatusTextBlock.Text = LocalizationService.Get("StatusCopiedText");
         }
     }
