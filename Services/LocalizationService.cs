@@ -295,6 +295,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "已开启",
             ["StatusDisabled"] = "已关闭",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL 引擎)",
+            ["FilterAllFolders"] = "📁 全部监控目录",
             ["UnknownSize"] = "未知",
 
             // 设置窗口
@@ -348,6 +349,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "Enabled",
             ["StatusDisabled"] = "Disabled",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL Engine)",
+            ["FilterAllFolders"] = "📁 All Folders",
             ["UnknownSize"] = "Unknown",
 
             // Settings window
@@ -401,6 +403,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "已開啟",
             ["StatusDisabled"] = "已關閉",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL 引擎)",
+            ["FilterAllFolders"] = "📁 全部監控目錄",
             ["UnknownSize"] = "未知",
 
             // 設定視窗
@@ -454,6 +457,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "有効",
             ["StatusDisabled"] = "無効",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL エンジン)",
+            ["FilterAllFolders"] = "📁 すべてのフォルダ",
             ["UnknownSize"] = "不明",
 
             // 設定ウィンドウ
@@ -507,6 +511,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "Aktiviert",
             ["StatusDisabled"] = "Deaktiviert",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL Engine)",
+            ["FilterAllFolders"] = "📁 Alle Ordner",
             ["UnknownSize"] = "Unbekannt",
 
             // Einstellungsfenster
@@ -560,6 +565,7 @@ public static class LocalizationService
             ["StatusEnabled"] = "활성화됨",
             ["StatusDisabled"] = "비활성화됨",
             ["DbInfo"] = "DwgSearcher (SQLite FTS5 + WAL 엔진)",
+            ["FilterAllFolders"] = "📁 모든 폴더",
             ["UnknownSize"] = "알 수 없음",
 
             // 설정 창

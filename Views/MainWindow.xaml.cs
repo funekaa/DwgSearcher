@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private List<SearchResultItem> _currentResults = new();
     private SearchResultItem? _selectedItem;
     private string _currentExtractedText = string.Empty;
+    private string _selectedFilterFolder = string.Empty;
 
     public MainWindow()
     {
@@ -94,6 +95,9 @@ public partial class MainWindow : Window
 
         EmptyStateTextBlock.Text = LocalizationService.Get("EmptyResult");
         
+        // 刷新目录过滤下拉框多语言
+        PopulateFolderFilterOptions();
+
         // 刷新列表统计文本
         UpdateSummaryAndStatus();
 
@@ -101,6 +105,46 @@ public partial class MainWindow : Window
         if (_selectedItem != null)
         {
             DisplayItemDetails(_selectedItem);
+        }
+    }
+
+    private void PopulateFolderFilterOptions()
+    {
+        var options = new List<FolderFilterOption>
+        {
+            new(string.Empty, LocalizationService.Get("FilterAllFolders"))
+        };
+
+        foreach (var folder in _config.Folders)
+        {
+            if (folder.Enabled && !string.IsNullOrWhiteSpace(folder.Path))
+            {
+                string trimmed = folder.Path.TrimEnd('\\', '/');
+                string dirName = Path.GetFileName(trimmed);
+                string label = string.IsNullOrEmpty(dirName) ? $"📁 {folder.Path}" : $"📁 {dirName} ({folder.Path})";
+                options.Add(new FolderFilterOption(folder.Path, label));
+            }
+        }
+
+        var previousSelected = _selectedFilterFolder;
+        FolderFilterComboBox.SelectionChanged -= FolderFilterComboBox_SelectionChanged;
+        FolderFilterComboBox.ItemsSource = options;
+
+        var match = options.FirstOrDefault(o => o.FullPath.Equals(previousSelected, StringComparison.OrdinalIgnoreCase)) ?? options[0];
+        FolderFilterComboBox.SelectedItem = match;
+        _selectedFilterFolder = match.FullPath;
+        FolderFilterComboBox.SelectionChanged += FolderFilterComboBox_SelectionChanged;
+    }
+
+    private void FolderFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (FolderFilterComboBox.SelectedItem is FolderFilterOption option)
+        {
+            if (_selectedFilterFolder != option.FullPath)
+            {
+                _selectedFilterFolder = option.FullPath;
+                ExecuteSearch(SearchBox.Text);
+            }
         }
     }
 
@@ -271,6 +315,16 @@ public partial class MainWindow : Window
         // 若在异步查询期间用户输入了新搜索词，则丢弃旧结果
         if (currentSeq != _searchSequence)
             return;
+
+        // 监控目录过滤：若用户在下拉框中指定了某个监控目录，只显示该目录下的图纸
+        if (!string.IsNullOrEmpty(_selectedFilterFolder))
+        {
+            string filterPrefix = _selectedFilterFolder.TrimEnd('\\', '/') + "\\";
+            rawResults = rawResults.Where(r =>
+                r.FilePath.Equals(_selectedFilterFolder, StringComparison.OrdinalIgnoreCase) ||
+                r.FilePath.StartsWith(filterPrefix, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
 
         sw.Stop();
 
@@ -459,6 +513,7 @@ public partial class MainWindow : Window
         if (settingsWin.ShowDialog() == true)
         {
             _watcherService.ReloadWatchers(_config);
+            PopulateFolderFilterOptions();
             if (settingsWin.NeedsReindex)
             {
                 StatusTextBlock.Text = LocalizationService.Get("StatusSyncing");
@@ -548,3 +603,5 @@ public partial class MainWindow : Window
         _dbManager.Dispose();
     }
 }
+
+public record FolderFilterOption(string FullPath, string DisplayName);

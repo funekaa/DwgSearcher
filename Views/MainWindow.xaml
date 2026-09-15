@@ -104,9 +104,26 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- 结果统计头 -->
-                    <Border Grid.Row="0" Background="#FAFAFA" BorderBrush="#EBEBEB" BorderThickness="0,0,0,1" Padding="12,8" CornerRadius="8,8,0,0">
-                        <TextBlock x:Name="ResultSummaryTextBlock" Text="等待输入检索..." FontSize="12.5" FontWeight="SemiBold" Foreground="#555555" />
+                    <!-- 结果统计头与目录过滤 -->
+                    <Border Grid.Row="0" Background="#FAFAFA" BorderBrush="#EBEBEB" BorderThickness="0,0,0,1" Padding="12,6" CornerRadius="8,8,0,0">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock x:Name="ResultSummaryTextBlock" Grid.Column="0" Text="等待输入检索..." FontSize="12" FontWeight="SemiBold" Foreground="#555555" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" />
+
+                            <!-- 监控目录过滤器下拉框 -->
+                            <ComboBox x:Name="FolderFilterComboBox" Grid.Column="1" MinWidth="130" MaxWidth="220" Height="25"
+                                      FontSize="11.5" VerticalAlignment="Center" SelectionChanged="FolderFilterComboBox_SelectionChanged">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayName}" ToolTip="{Binding FullPath}" TextTrimming="CharacterEllipsis" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </Grid>
                     </Border>
 
                     <!-- 文件列表 -->
