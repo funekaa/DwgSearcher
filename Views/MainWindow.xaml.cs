@@ -93,8 +93,7 @@ public partial class MainWindow : Window
         NoPreviewSubTextBlock.Text = LocalizationService.Get("NoPreviewSubText");
 
         EmptyStateTextBlock.Text = LocalizationService.Get("EmptyResult");
-        DbInfoTextBlock.Text = LocalizationService.Get("DbInfo");
-
+        
         // 刷新列表统计文本
         UpdateSummaryAndStatus();
 
@@ -331,6 +330,10 @@ public partial class MainWindow : Window
             ThumbnailImage.Visibility = Visibility.Collapsed;
             NoPreviewPanel.Visibility = Visibility.Visible;
         }
+
+        // 状态栏左侧显示当前选中文件的完整路径与大小
+        SelectedFileStatusTextBlock.Text = $"📄 {item.FilePath} ({item.FileSizeString})";
+        SelectedFileStatusTextBlock.ToolTip = item.FilePath;
     }
 
     private void RenderHighlightedContent(string fullText, string keyword)
@@ -436,6 +439,8 @@ public partial class MainWindow : Window
         NoPreviewPanel.Visibility = Visibility.Collapsed;
         _currentExtractedText = string.Empty;
         _selectedItem = null;
+        SelectedFileStatusTextBlock.Text = string.Empty;
+        SelectedFileStatusTextBlock.ToolTip = null;
     }
 
     private void SearchButton_Click(object sender, RoutedEventArgs e)
