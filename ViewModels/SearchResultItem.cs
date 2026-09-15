@@ -11,7 +11,8 @@ public class SearchResultItem
     public string FilePath { get; }
     public string FileSizeText { get; }
     public string LastModifiedText { get; }
-    public string Snippet { get; }
+    private readonly string _rawSnippet;
+    public string Snippet => LocalizationService.LocalizeExtractedText(_rawSnippet);
     public double Rank { get; }
 
     /// <summary>
@@ -26,7 +27,7 @@ public class SearchResultItem
     {
         Title = model.Title;
         FilePath = model.FilePath;
-        Snippet = model.Snippet.Replace("<b>", "").Replace("</b>", "").Trim();
+        _rawSnippet = model.Snippet.Replace("<b>", "").Replace("</b>", "").Trim();
         Rank = model.Rank;
 
         // 提取系统关联的文件图标
