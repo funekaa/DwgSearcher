@@ -110,16 +110,11 @@ public static class LocalizationService
         new("Comments", new Regex(@"\[(图纸注释|备注|注释|Comments|圖紙註解|備註|註解|コメント|Kommentare|설명)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
         new("Hyperlink", new Regex(@"\[(超链接|Hyperlink|超連結|ハイパーリンク|하이퍼링크)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
 
-        // 内联字段提示语本地化 (无论是否带括号、冒号或被截断)
-        new("BlockNameField", new Regex(@"(?:\[\s*)?(?:块名|Block Name|Block|圖塊名|圖塊名稱|ブロック名|Block-Name|블록\s*이름)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("PathField", new Regex(@"(?:\[\s*)?(?:路径|Path|路徑|パス|Pfad|경로)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("PromptField", new Regex(@"(?:\[\s*)?(?:提示|Prompt|プロンプト|Aufforderung|프롬프트)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("DefaultField", new Regex(@"(?:\[\s*)?(?:默认值|Default Value|Default|預設值|デフォルト値|Standardwert|기본값)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("DimensionField", new Regex(@"(?:\[\s*)?(?:标注|尺寸标注|尺寸|Dimension|標註|寸法|Bemaßung|치수|DIM)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("ToleranceField", new Regex(@"(?:\[\s*)?(?:形位公差|公差|Tolerance|幾何公差|Form- und Lagetoleranz|기하\s*공차|TOL)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("AttributeField", new Regex(@"(?:\[\s*)?(?:属性|Attribute|屬性|Attribut|속性|ATTR|속성)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("BlockField", new Regex(@"(?:\[\s*)?(?:图块|块|Block|圖塊|ブロック|블록|BLOCK)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
-        new("LeaderField", new Regex(@"(?:\[\s*)?(?:引线文字|引线|多重引线|Leader|MultiLeader|引線文字|引出線|Führungslinie|지시선)(?:\s*\])?:\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        // 内联字段提示语本地化 (位于外部参照/属性定义内部的字段)
+        new("BlockNameField", new Regex(@"(?<!\[)(?:块名|Block Name|Block|圖塊名|圖塊名稱|ブロック名|Block-Name|블록\s*이름):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("PathField", new Regex(@"(?<!\[)(?:路径|Path|路徑|パス|Pfad|경로):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("PromptField", new Regex(@"(?<!\[)(?:提示|Prompt|プロンプト|Aufforderung|프롬프트):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
+        new("DefaultField", new Regex(@"(?<!\[)(?:默认值|Default Value|Default|預設值|デフォルト値|Standardwert|기본값):\s*", RegexOptions.Compiled | RegexOptions.IgnoreCase)),
 
         // 清理 FTS5 切分摘要时产生的残缺括号碎片 (如 ...F] 或 ...照])
         new("CleanTruncatedBracket", new Regex(@"^\s*\.{2,3}[A-Za-z0-9\u4e00-\u9fa5]*\]\s*", RegexOptions.Compiled))
@@ -150,11 +145,6 @@ public static class LocalizationService
             ["PathField"] = "路径: ",
             ["PromptField"] = "提示: ",
             ["DefaultField"] = "默认值: ",
-            ["DimensionField"] = "标注: ",
-            ["ToleranceField"] = "形位公差: ",
-            ["AttributeField"] = "属性: ",
-            ["BlockField"] = "图块: ",
-            ["LeaderField"] = "引线文字: ",
             ["CleanTruncatedBracket"] = "..."
         },
         ["en-US"] = new()
@@ -179,11 +169,6 @@ public static class LocalizationService
             ["PathField"] = "Path: ",
             ["PromptField"] = "Prompt: ",
             ["DefaultField"] = "Default: ",
-            ["DimensionField"] = "Dimension: ",
-            ["ToleranceField"] = "Tolerance: ",
-            ["AttributeField"] = "Attribute: ",
-            ["BlockField"] = "Block: ",
-            ["LeaderField"] = "Leader: ",
             ["CleanTruncatedBracket"] = "..."
         },
         ["zh-TW"] = new()
@@ -208,11 +193,6 @@ public static class LocalizationService
             ["PathField"] = "路徑: ",
             ["PromptField"] = "提示: ",
             ["DefaultField"] = "預設值: ",
-            ["DimensionField"] = "標註: ",
-            ["ToleranceField"] = "形位公差: ",
-            ["AttributeField"] = "屬性: ",
-            ["BlockField"] = "圖塊: ",
-            ["LeaderField"] = "引線文字: ",
             ["CleanTruncatedBracket"] = "..."
         },
         ["ja-JP"] = new()
@@ -237,11 +217,6 @@ public static class LocalizationService
             ["PathField"] = "パス: ",
             ["PromptField"] = "プロンプト: ",
             ["DefaultField"] = "デフォルト値: ",
-            ["DimensionField"] = "寸法: ",
-            ["ToleranceField"] = "幾何公差: ",
-            ["AttributeField"] = "属性: ",
-            ["BlockField"] = "ブロック: ",
-            ["LeaderField"] = "引出線: ",
             ["CleanTruncatedBracket"] = "..."
         },
         ["de-DE"] = new()
@@ -266,11 +241,6 @@ public static class LocalizationService
             ["PathField"] = "Pfad: ",
             ["PromptField"] = "Aufforderung: ",
             ["DefaultField"] = "Standardwert: ",
-            ["DimensionField"] = "Bemaßung: ",
-            ["ToleranceField"] = "Form- und Lagetoleranz: ",
-            ["AttributeField"] = "Attribut: ",
-            ["BlockField"] = "Block: ",
-            ["LeaderField"] = "Führungslinie: ",
             ["CleanTruncatedBracket"] = "..."
         },
         ["ko-KR"] = new()
@@ -295,11 +265,6 @@ public static class LocalizationService
             ["PathField"] = "경로: ",
             ["PromptField"] = "프롬프트: ",
             ["DefaultField"] = "기본값: ",
-            ["DimensionField"] = "치수: ",
-            ["ToleranceField"] = "기하 공차: ",
-            ["AttributeField"] = "속성: ",
-            ["BlockField"] = "블록: ",
-            ["LeaderField"] = "지시선: ",
             ["CleanTruncatedBracket"] = "..."
         }
     };
