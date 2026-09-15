@@ -119,9 +119,7 @@ public partial class MainWindow : Window
         {
             if (folder.Enabled && !string.IsNullOrWhiteSpace(folder.Path))
             {
-                string trimmed = folder.Path.TrimEnd('\\', '/');
-                string dirName = Path.GetFileName(trimmed);
-                string label = string.IsNullOrEmpty(dirName) ? $"📁 {folder.Path}" : $"📁 {dirName} ({folder.Path})";
+                string label = $"📁 {folder.Path}";
                 options.Add(new FolderFilterOption(folder.Path, label));
             }
         }
