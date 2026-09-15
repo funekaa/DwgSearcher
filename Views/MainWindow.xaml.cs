@@ -331,8 +331,8 @@ public partial class MainWindow : Window
             NoPreviewPanel.Visibility = Visibility.Visible;
         }
 
-        // 状态栏左侧显示当前选中文件的完整路径与大小
-        SelectedFileStatusTextBlock.Text = $"📄 {item.FilePath} ({item.FileSizeString})";
+        // 状态栏左侧显示当前选中文件的完整路径、大小与修改日期
+        SelectedFileStatusTextBlock.Text = $"📄 {item.FilePath}   ({item.FileSizeText}, {item.LastModifiedText})";
         SelectedFileStatusTextBlock.ToolTip = item.FilePath;
     }
 
